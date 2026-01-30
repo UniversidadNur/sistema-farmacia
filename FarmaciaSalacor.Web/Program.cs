@@ -192,7 +192,8 @@ if (!app.Environment.IsDevelopment())
 
                 if (ex is not null)
                 {
-                    app.Logger.LogError(ex, "Unhandled exception");
+                    app.Logger.LogError(ex, "Unhandled exception. TraceId={TraceId}", context.TraceIdentifier);
+                    Console.Error.WriteLine($"Unhandled exception. TraceId={context.TraceIdentifier}\n{ex}");
                 }
 
                 if (!context.Response.HasStarted)
@@ -202,7 +203,7 @@ if (!app.Environment.IsDevelopment())
                     context.Response.ContentType = "text/plain; charset=utf-8";
                 }
 
-                await context.Response.WriteAsync("Ocurrió un error interno. Revise los logs del servidor.");
+                await context.Response.WriteAsync($"Ocurrió un error interno. TraceId: {context.TraceIdentifier}. Revise los logs del servidor.");
             });
         });
     }
