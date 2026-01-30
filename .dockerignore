@@ -1,0 +1,11 @@
+.git
+.vs
+**/bin
+**/obj
+**/publish
+**/*.db
+**/*.db-shm
+**/*.db-wal
+*.user
+*.suo
+*.log
