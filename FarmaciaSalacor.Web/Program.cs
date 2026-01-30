@@ -1,4 +1,5 @@
 using FarmaciaSalacor.Web.Data;
+using FarmaciaSalacor.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -78,6 +79,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     }
 });
 
+builder.Services.AddHostedService<DbInitializerHostedService>();
+
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -136,27 +139,6 @@ app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
-
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    var db = services.GetRequiredService<AppDbContext>();
-
-    // Para SQLite usamos migraciones.
-    // Para MySQL en Railway, ConnectionStrings:Default suele venir como mysql://...;
-    // las migraciones actuales fueron generadas para SQLite (tipos INTEGER/TEXT),
-    // por eso en MySQL creamos el esquema a partir del modelo.
-    if (db.Database.IsMySql())
-    {
-        await db.Database.EnsureCreatedAsync();
-    }
-    else
-    {
-        await db.Database.MigrateAsync();
-    }
-
-    await DbSeeder.SeedAsync(db);
-}
 
 app.MapControllerRoute(
     name: "areas",
