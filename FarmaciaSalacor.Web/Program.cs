@@ -71,11 +71,13 @@ if (LooksLikeMySqlUrl(connectionToUse))
     connectionToUse = MySqlUrlToConnectionString(connectionToUse);
 }
 
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     if (isMySql)
     {
-        options.UseMySql(connectionToUse, ServerVersion.AutoDetect(connectionToUse));
+        var serverVersion = ServerVersion.AutoDetect(connectionToUse);
+        options.UseMySql(connectionToUse, serverVersion, mySqlOptions => mySqlOptions.EnableRetryOnFailure());
     }
     else
     {
