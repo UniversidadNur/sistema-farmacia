@@ -149,7 +149,9 @@ var isRailway = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("R
     || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RAILWAY_PROJECT_ID"))
     || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RAILWAY_ENVIRONMENT"));
 
-if (!isRailway)
+var isBehindProxy = isRailway || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("PORT"));
+
+if (!isBehindProxy)
 {
     app.UseHttpsRedirection();
 }

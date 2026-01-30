@@ -22,6 +22,28 @@ public class AccountController : Controller
     [HttpGet]
     public IActionResult Login(string? returnUrl = null)
     {
+        // Evita bucles de redirección con ReturnUrl anidado (puede llegar a 414 Request-URI Too Long).
+        if (!string.IsNullOrWhiteSpace(returnUrl))
+        {
+            if (returnUrl.Length > 512
+                || returnUrl.Contains("/Account/Login", StringComparison.OrdinalIgnoreCase)
+                || !Url.IsLocalUrl(returnUrl))
+            {
+                returnUrl = null;
+            }
+        }
+
+        // Si ya está autenticado, no tiene sentido volver al login.
+        if (User?.Identity?.IsAuthenticated ?? false)
+        {
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+            {
+                return Redirect(returnUrl);
+            }
+
+            return RedirectToAction("Index", "Home");
+        }
+
         ViewData["ReturnUrl"] = returnUrl;
         return View(new LoginViewModel());
     }
@@ -30,6 +52,12 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginViewModel model, string? returnUrl = null)
     {
+        if (!string.IsNullOrWhiteSpace(returnUrl)
+            && (returnUrl.Length > 512 || returnUrl.Contains("/Account/Login", StringComparison.OrdinalIgnoreCase)))
+        {
+            returnUrl = null;
+        }
+
         ViewData["ReturnUrl"] = returnUrl;
 
         if (!ModelState.IsValid)
