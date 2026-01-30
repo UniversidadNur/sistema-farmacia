@@ -2,6 +2,7 @@ using FarmaciaSalacor.Web.Data;
 using FarmaciaSalacor.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using MySqlConnector;
@@ -169,7 +170,7 @@ app.UseForwardedHeaders(forwardedOptions);
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
-    // Permite activar la página de excepción detallada en producción SOLO cuando se necesite debug.
+    // Permite activar el detalle de errores en producción SOLO para debug.
     // En Railway se puede setear FARMACIA_DEBUG_ERRORS=true temporalmente y luego quitarlo.
     var debugErrors = string.Equals(Environment.GetEnvironmentVariable("FARMACIA_DEBUG_ERRORS"), "true", StringComparison.OrdinalIgnoreCase)
         || string.Equals(Environment.GetEnvironmentVariable("FARMACIA_DEBUG_ERRORS"), "1", StringComparison.OrdinalIgnoreCase);
@@ -180,7 +181,30 @@ if (!app.Environment.IsDevelopment())
     }
     else
     {
-        app.UseExceptionHandler("/Home/Error");
+        // Importante: NO usar "/Home/Error" aquí.
+        // Si el problema real es AppDbContext/DI, HomeController también falla y terminamos con 500 sin diagnóstico.
+        app.UseExceptionHandler(errorApp =>
+        {
+            errorApp.Run(async context =>
+            {
+                var feature = context.Features.Get<IExceptionHandlerFeature>();
+                var ex = feature?.Error;
+
+                if (ex is not null)
+                {
+                    app.Logger.LogError(ex, "Unhandled exception");
+                }
+
+                if (!context.Response.HasStarted)
+                {
+                    context.Response.Clear();
+                    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                    context.Response.ContentType = "text/plain; charset=utf-8";
+                }
+
+                await context.Response.WriteAsync("Ocurrió un error interno. Revise los logs del servidor.");
+            });
+        });
     }
 
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
