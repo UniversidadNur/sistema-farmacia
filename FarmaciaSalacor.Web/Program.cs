@@ -39,6 +39,9 @@ static bool LooksLikeMySqlUrl(string value)
     => value.StartsWith("mysql://", StringComparison.OrdinalIgnoreCase)
        || value.StartsWith("mariadb://", StringComparison.OrdinalIgnoreCase);
 
+static bool LooksLikeMariaDbUrl(string value)
+    => value.StartsWith("mariadb://", StringComparison.OrdinalIgnoreCase);
+
 static string MySqlUrlToConnectionString(string url)
 {
     // Formato típico Railway: mysql://user:pass@host:port/db
@@ -65,6 +68,10 @@ var isMySql = LooksLikeMySqlUrl(defaultConnection)
     || defaultConnection.Contains("Server=", StringComparison.OrdinalIgnoreCase)
     || defaultConnection.Contains("Host=", StringComparison.OrdinalIgnoreCase);
 
+var isMariaDb = LooksLikeMariaDbUrl(defaultConnection)
+    || defaultConnection.Contains("MariaDb", StringComparison.OrdinalIgnoreCase)
+    || defaultConnection.Contains("MariaDB", StringComparison.OrdinalIgnoreCase);
+
 var connectionToUse = defaultConnection;
 if (LooksLikeMySqlUrl(connectionToUse))
 {
@@ -76,7 +83,13 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 {
     if (isMySql)
     {
-        var serverVersion = ServerVersion.AutoDetect(connectionToUse);
+        // Evita ServerVersion.AutoDetect(): intenta conectar a la DB para detectar la versión y,
+        // si la red/credenciales fallan, puede tirar HTTP 500 incluso en /Account/Login.
+        // Railway suele usar MySQL 8; si usas MariaDB, ajusta mediante isMariaDb.
+        ServerVersion serverVersion = isMariaDb
+            ? new MariaDbServerVersion(new Version(10, 6, 0))
+            : new MySqlServerVersion(new Version(8, 0, 0));
+
         options.UseMySql(connectionToUse, serverVersion, mySqlOptions => mySqlOptions.EnableRetryOnFailure());
     }
     else
