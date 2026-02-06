@@ -95,7 +95,10 @@
                                         <button type="button" class="btn btn-danger btn-sm btn-del" title="Quitar"><i class="fa-solid fa-trash"></i></button>
                                     </td>
                                     <td>
-                                        <input type="text" class="form-control form-control-sm inp-prod-search mb-1" placeholder="Buscar producto o código…" autocomplete="off" list="ventaProductosDatalist" />
+                                        <div class="position-relative">
+                                            <input type="text" class="form-control form-control-sm inp-prod-search mb-1" placeholder="Buscar producto o código…" autocomplete="off" />
+                                            <div class="list-group position-absolute w-100 venta-suggest" style="top:100%;left:0;z-index:1050;display:none;max-height:220px;overflow:auto;"></div>
+                                        </div>
                                         <select class="form-select form-select-sm sel-prod" name="Items[@i].ProductoId">
                                             <option value="">-- Seleccionar --</option>
                                             @foreach (var p in productos)
@@ -119,8 +122,6 @@
                     </table>
                 </div>
             </div>
-
-            <datalist id="ventaProductosDatalist"></datalist>
 
             <div class="d-flex justify-content-end gap-2 mt-2">
                 <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-floppy-disk"></i> Guardar venta</button>
@@ -207,36 +208,6 @@
                 if (currentValue) selectEl.value = currentValue;
             }
 
-            function fillDatalist() {
-                const dl = document.getElementById('ventaProductosDatalist');
-                if (!dl) return;
-
-                const seen = new Set();
-                const opts = [];
-
-                for (const p of productosCatalog) {
-                    const nombre = (p.nombre || '').trim();
-                    const codigo = (p.codigo || '').trim();
-
-                    if (nombre) {
-                        const key = 'n:' + normalizeSearch(nombre);
-                        if (!seen.has(key)) {
-                            seen.add(key);
-                            opts.push(nombre);
-                        }
-                    }
-                    if (codigo) {
-                        const key = 'c:' + normalizeSearch(codigo);
-                        if (!seen.has(key)) {
-                            seen.add(key);
-                            opts.push(codigo);
-                        }
-                    }
-                }
-
-                dl.innerHTML = opts.map(v => `<option value="${escapeHtmlAttr(v)}"></option>`).join('');
-            }
-
             function trySelectProductoFromSearch(tr, rawValue) {
                 if (!tr) return false;
                 const sel = tr.querySelector('select.sel-prod');
@@ -259,6 +230,62 @@
                 if (search) search.value = '';
 
                 return true;
+            }
+
+            function getSuggestions(query) {
+                const q = normalizeSearch(query);
+                if (!q) return [];
+
+                const starts = [];
+                const contains = [];
+
+                for (const p of productosCatalog) {
+                    const n = normalizeSearch(p.nombre);
+                    const c = normalizeSearch(p.codigo);
+                    const startsMatch = (n && n.startsWith(q)) || (c && c.startsWith(q));
+                    const containsMatch = (!startsMatch) && (((n && n.includes(q)) || (c && c.includes(q))));
+
+                    if (startsMatch) starts.push(p);
+                    else if (containsMatch) contains.push(p);
+                }
+
+                return [...starts, ...contains].slice(0, 10);
+            }
+
+            function hideSuggestions(tr) {
+                if (!tr) return;
+                const box = tr.querySelector('.venta-suggest');
+                if (!box) return;
+                box.style.display = 'none';
+                box.innerHTML = '';
+            }
+
+            function showSuggestions(tr, query) {
+                if (!tr) return;
+                const box = tr.querySelector('.venta-suggest');
+                if (!box) return;
+
+                const list = getSuggestions(query);
+                if (!list.length) {
+                    hideSuggestions(tr);
+                    return;
+                }
+
+                box.innerHTML = list.map(p => {
+                    const nombre = escapeHtmlText((p.nombre || '').trim());
+                    const codigo = escapeHtmlText((p.codigo || '').trim());
+                    const right = codigo ? `<div class="small text-muted">${codigo}</div>` : '';
+                    return `
+                        <button type="button" class="list-group-item list-group-item-action py-1 venta-suggest-item" data-prod-id="${escapeHtmlAttr(p.id)}">
+                            <div class="d-flex justify-content-between gap-2">
+                                <div class="text-truncate">${nombre}</div>
+                                <div class="text-end">${right}</div>
+                            </div>
+                        </button>
+                    `;
+                }).join('');
+
+                box.style.display = '';
             }
 
             // Scanner elements
@@ -450,7 +477,10 @@
                 tr.innerHTML = `
                     <td class="text-center"><button type="button" class="btn btn-danger btn-sm btn-del" title="Quitar"><i class="fa-solid fa-trash"></i></button></td>
                     <td>
-                        <input type="text" class="form-control form-control-sm inp-prod-search mb-1" placeholder="Buscar producto o código…" autocomplete="off" list="ventaProductosDatalist" />
+                        <div class="position-relative">
+                            <input type="text" class="form-control form-control-sm inp-prod-search mb-1" placeholder="Buscar producto o código…" autocomplete="off" />
+                            <div class="list-group position-absolute w-100 venta-suggest" style="top:100%;left:0;z-index:1050;display:none;max-height:220px;overflow:auto;"></div>
+                        </div>
                         <select class="form-select form-select-sm sel-prod" name="Items[${idx}].ProductoId">
                             <option value="">-- Seleccionar --</option>
                             ${productosCatalog.map(p => `<option value="${p.id}" data-codigo="${escapeHtmlAttr(p.codigo)}" data-precio="${p.precio}" data-stock="${p.stock}">${escapeHtmlText(p.nombre)}</option>`).join('')}
@@ -729,6 +759,7 @@
                     if (tr) {
                         const search = tr.querySelector('.inp-prod-search');
                         if (search) search.value = '';
+                        hideSuggestions(tr);
                     }
                     recalcTotal();
                 }
@@ -741,35 +772,64 @@
                     const sel = tr.querySelector('select.sel-prod');
                     if (!sel) return;
                     renderProductoOptions(sel, e.target.value || '');
+                    showSuggestions(tr, e.target.value || '');
                     return;
                 }
             });
 
-            body.addEventListener('change', function (e) {
-                if (e.target.classList.contains('inp-prod-search')) {
-                    const tr = e.target.closest('tr.venta-row');
-                    if (!tr) return;
-                    trySelectProductoFromSearch(tr, e.target.value || '');
-                    return;
-                }
+            body.addEventListener('click', function (e) {
+                const btn = e.target.closest('.venta-suggest-item');
+                if (!btn) return;
+                const tr = btn.closest('tr.venta-row');
+                if (!tr) return;
+
+                const id = (btn.getAttribute('data-prod-id') || '').trim();
+                if (!id) return;
+
+                const sel = tr.querySelector('select.sel-prod');
+                if (!sel) return;
+                renderProductoOptions(sel, '');
+                sel.value = id;
+                sel.dispatchEvent(new Event('change', { bubbles: true }));
+                hideSuggestions(tr);
             });
 
             body.addEventListener('keydown', function (e) {
-                if (e.target.classList.contains('inp-prod-search') && e.key === 'Enter') {
+                if (!e.target.classList.contains('inp-prod-search')) return;
+                const tr = e.target.closest('tr.venta-row');
+                if (!tr) return;
+
+                if (e.key === 'Enter') {
                     e.preventDefault();
-                    const tr = e.target.closest('tr.venta-row');
-                    if (!tr) return;
-                    trySelectProductoFromSearch(tr, e.target.value || '');
+                    const ok = trySelectProductoFromSearch(tr, e.target.value || '');
+                    if (ok) hideSuggestions(tr);
                     return;
                 }
+
+                if (e.key === 'Escape') {
+                    hideSuggestions(tr);
+                    return;
+                }
+            });
+
+            body.addEventListener('focusin', function (e) {
+                if (!e.target.classList.contains('inp-prod-search')) return;
+                const tr = e.target.closest('tr.venta-row');
+                if (!tr) return;
+                showSuggestions(tr, e.target.value || '');
+            });
+
+            body.addEventListener('focusout', function (e) {
+                if (!e.target.classList.contains('inp-prod-search')) return;
+                const tr = e.target.closest('tr.venta-row');
+                if (!tr) return;
+                window.setTimeout(() => hideSuggestions(tr), 120);
             });
             body.addEventListener('input', function (e) {
                 if (e.target.classList.contains('inp-cant') || e.target.classList.contains('inp-precio')) {
                     recalcTotal();
                 }
             });
-
-            fillDatalist();
             recalcTotal();
         })();
     </script>
