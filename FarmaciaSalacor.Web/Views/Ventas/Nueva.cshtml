@@ -95,7 +95,7 @@
                                         <button type="button" class="btn btn-danger btn-sm btn-del" title="Quitar"><i class="fa-solid fa-trash"></i></button>
                                     </td>
                                     <td>
-                                        <input type="text" class="form-control form-control-sm inp-prod-search mb-1" placeholder="Buscar producto o código…" autocomplete="off" />
+                                        <input type="text" class="form-control form-control-sm inp-prod-search mb-1" placeholder="Buscar producto o código…" autocomplete="off" list="ventaProductosDatalist" />
                                         <select class="form-select form-select-sm sel-prod" name="Items[@i].ProductoId">
                                             <option value="">-- Seleccionar --</option>
                                             @foreach (var p in productos)
@@ -119,6 +119,8 @@
                     </table>
                 </div>
             </div>
+
+            <datalist id="ventaProductosDatalist"></datalist>
 
             <div class="d-flex justify-content-end gap-2 mt-2">
                 <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-floppy-disk"></i> Guardar venta</button>
@@ -203,6 +205,60 @@
 
                 selectEl.innerHTML = html;
                 if (currentValue) selectEl.value = currentValue;
+            }
+
+            function fillDatalist() {
+                const dl = document.getElementById('ventaProductosDatalist');
+                if (!dl) return;
+
+                const seen = new Set();
+                const opts = [];
+
+                for (const p of productosCatalog) {
+                    const nombre = (p.nombre || '').trim();
+                    const codigo = (p.codigo || '').trim();
+
+                    if (nombre) {
+                        const key = 'n:' + normalizeSearch(nombre);
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            opts.push(nombre);
+                        }
+                    }
+                    if (codigo) {
+                        const key = 'c:' + normalizeSearch(codigo);
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            opts.push(codigo);
+                        }
+                    }
+                }
+
+                dl.innerHTML = opts.map(v => `<option value="${escapeHtmlAttr(v)}"></option>`).join('');
+            }
+
+            function trySelectProductoFromSearch(tr, rawValue) {
+                if (!tr) return false;
+                const sel = tr.querySelector('select.sel-prod');
+                if (!sel) return false;
+
+                const value = ('' + (rawValue ?? '')).trim();
+                const q = normalizeSearch(value);
+                if (!q) return false;
+
+                let prod = productosCatalog.find(p => normalizeSearch(p.codigo) === q);
+                if (!prod) prod = productosCatalog.find(p => normalizeSearch(p.nombre) === q);
+                if (!prod) return false;
+
+                renderProductoOptions(sel, '');
+                sel.value = prod.id;
+                sel.dispatchEvent(new Event('change', { bubbles: true }));
+                recalcTotal();
+
+                const search = tr.querySelector('.inp-prod-search');
+                if (search) search.value = '';
+
+                return true;
             }
 
             // Scanner elements
@@ -394,7 +450,7 @@
                 tr.innerHTML = `
                     <td class="text-center"><button type="button" class="btn btn-danger btn-sm btn-del" title="Quitar"><i class="fa-solid fa-trash"></i></button></td>
                     <td>
-                        <input type="text" class="form-control form-control-sm inp-prod-search mb-1" placeholder="Buscar producto o código…" autocomplete="off" />
+                        <input type="text" class="form-control form-control-sm inp-prod-search mb-1" placeholder="Buscar producto o código…" autocomplete="off" list="ventaProductosDatalist" />
                         <select class="form-select form-select-sm sel-prod" name="Items[${idx}].ProductoId">
                             <option value="">-- Seleccionar --</option>
                             ${productosCatalog.map(p => `<option value="${p.id}" data-codigo="${escapeHtmlAttr(p.codigo)}" data-precio="${p.precio}" data-stock="${p.stock}">${escapeHtmlText(p.nombre)}</option>`).join('')}
@@ -688,12 +744,32 @@
                     return;
                 }
             });
+
+            body.addEventListener('change', function (e) {
+                if (e.target.classList.contains('inp-prod-search')) {
+                    const tr = e.target.closest('tr.venta-row');
+                    if (!tr) return;
+                    trySelectProductoFromSearch(tr, e.target.value || '');
+                    return;
+                }
+            });
+
+            body.addEventListener('keydown', function (e) {
+                if (e.target.classList.contains('inp-prod-search') && e.key === 'Enter') {
+                    e.preventDefault();
+                    const tr = e.target.closest('tr.venta-row');
+                    if (!tr) return;
+                    trySelectProductoFromSearch(tr, e.target.value || '');
+                    return;
+                }
+            });
             body.addEventListener('input', function (e) {
                 if (e.target.classList.contains('inp-cant') || e.target.classList.contains('inp-precio')) {
                     recalcTotal();
                 }
             });
 
+            fillDatalist();
             recalcTotal();
         })();
     </script>
