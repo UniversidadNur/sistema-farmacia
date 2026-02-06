@@ -27,8 +27,40 @@
             <i class="fa-solid fa-trash"></i> Eliminar
         </a>
         <div class="ms-auto d-flex align-items-center gap-2">
-            <input id="invSearch" class="form-control form-control-sm" style="max-width:220px;" placeholder="Buscar otro" autocomplete="off" />
-            <input id="invBarcode" class="form-control form-control-sm" style="max-width:220px;" placeholder="Código de barras..." autocomplete="off" />
+            <div class="input-group input-group-sm" style="max-width:260px;">
+                <input id="invSearch" class="form-control" placeholder="Buscar medicamento" autocomplete="off" />
+                <button id="btnInvSearch" class="btn btn-outline-secondary" type="button" title="Buscar">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            </div>
+
+            <div class="input-group input-group-sm" style="max-width:240px;">
+                <input id="invBarcode" class="form-control" placeholder="Código de barras..." autocomplete="off" />
+                <button id="btnInvBarcode" class="btn btn-outline-secondary" type="button" title="Buscar por código">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            </div>
+
+            <select id="invQuick" class="form-select form-select-sm" style="max-width:190px;" title="Filtros rápidos">
+                <option value="all">(Todos)</option>
+                <option value="inStock">Con existencia</option>
+                <option value="outOfStock">Sin existencia</option>
+                <option value="expiring30">Vence en 30 días</option>
+                <option value="expired">Vencidos</option>
+            </select>
+
+            <select id="invAccion" class="form-select form-select-sm" style="max-width:210px;" title="Acción terapéutica">
+                <option value="">Acción terapéutica</option>
+            </select>
+
+            <select id="invLab" class="form-select form-select-sm" style="max-width:190px;" title="Laboratorio">
+                <option value="">Laboratorio</option>
+            </select>
+
+            <button id="btnInvClear" class="btn btn-outline-secondary btn-sm" type="button" title="Limpiar filtros">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
             <div class="text-muted small align-self-center ms-2">
                 Total: <strong id="lblInvTotal">@Model.Count</strong>
             </div>
@@ -72,17 +104,17 @@
                                 <input class="form-check-input" type="radio" name="selProducto" value="@p.Id" />
                             </td>
                             <td class="col-codigo">@p.Codigo</td>
-                            <td>@p.Nombre</td>
-                            <td>@(string.IsNullOrWhiteSpace(p.NombreGenerico) ? "-" : p.NombreGenerico)</td>
-                            <td>@(string.IsNullOrWhiteSpace(p.FormaFarmaceutica) ? "-" : p.FormaFarmaceutica)</td>
-                            <td>@(string.IsNullOrWhiteSpace(p.Concentracion) ? "-" : p.Concentracion)</td>
-                            <td>@(p.Categoria?.Nombre ?? "-")</td>
-                            <td>@(string.IsNullOrWhiteSpace(p.Presentacion) ? "-" : p.Presentacion)</td>
-                            <td>@(p.Marca?.Nombre ?? "-")</td>
-                            <td class="text-end">@p.Precio.ToString("N2")</td>
-                            <td class="text-end">@p.Stock.ToString("N2")</td>
-                            <td>@(p.Vencimiento?.ToString("yyyy-MM-dd") ?? "-")</td>
-                            <td class="text-end">@(dias.HasValue ? dias.Value.ToString("N0") : "-")</td>
+                            <td class="col-nombre">@p.Nombre</td>
+                            <td class="col-generico">@(string.IsNullOrWhiteSpace(p.NombreGenerico) ? "-" : p.NombreGenerico)</td>
+                            <td class="col-forma">@(string.IsNullOrWhiteSpace(p.FormaFarmaceutica) ? "-" : p.FormaFarmaceutica)</td>
+                            <td class="col-conc">@(string.IsNullOrWhiteSpace(p.Concentracion) ? "-" : p.Concentracion)</td>
+                            <td class="col-accion">@(p.Categoria?.Nombre ?? "-")</td>
+                            <td class="col-pres">@(string.IsNullOrWhiteSpace(p.Presentacion) ? "-" : p.Presentacion)</td>
+                            <td class="col-lab">@(p.Marca?.Nombre ?? "-")</td>
+                            <td class="text-end col-precio">@p.Precio.ToString("N2")</td>
+                            <td class="text-end col-stock">@p.Stock.ToString("N2")</td>
+                            <td class="col-venc">@(p.Vencimiento?.ToString("yyyy-MM-dd") ?? "-")</td>
+                            <td class="text-end col-dias">@(dias.HasValue ? dias.Value.ToString("N0") : "-")</td>
                         </tr>
                     }
                 }
@@ -100,6 +132,12 @@
             const tbl = document.getElementById('tblProductos');
             const invSearch = document.getElementById('invSearch');
             const invBarcode = document.getElementById('invBarcode');
+            const btnInvSearch = document.getElementById('btnInvSearch');
+            const btnInvBarcode = document.getElementById('btnInvBarcode');
+            const invQuick = document.getElementById('invQuick');
+            const invAccion = document.getElementById('invAccion');
+            const invLab = document.getElementById('invLab');
+            const btnInvClear = document.getElementById('btnInvClear');
             const lblInvTotal = document.getElementById('lblInvTotal');
 
             function setSelected(id) {
@@ -138,10 +176,46 @@
                 return ('' + (s ?? '')).trim().toLowerCase();
             }
 
+            function toNum(s) {
+                const v = ('' + (s ?? '')).replace(',', '.').trim();
+                const n = parseFloat(v);
+                return isNaN(n) ? 0 : n;
+            }
+
+            function fillSelectDistinct(selectEl, values, placeholder) {
+                if (!selectEl) return;
+                const current = selectEl.value || '';
+                const uniq = Array.from(new Set(values.filter(v => v && v !== '-'))).sort((a, b) => a.localeCompare(b));
+                const opts = [
+                    `<option value="">${placeholder}</option>`,
+                    ...uniq.map(v => `<option value="${v.replaceAll('"', '&quot;')}">${v}</option>`)
+                ].join('');
+                selectEl.innerHTML = opts;
+                selectEl.value = current;
+            }
+
+            function initFilterOptions() {
+                if (!tbl) return;
+                const acciones = [];
+                const labs = [];
+                tbl.querySelectorAll('tbody tr.erp-row-select').forEach(tr => {
+                    const a = (tr.querySelector('.col-accion')?.textContent || '').trim();
+                    const l = (tr.querySelector('.col-lab')?.textContent || '').trim();
+                    if (a) acciones.push(a);
+                    if (l) labs.push(l);
+                });
+                fillSelectDistinct(invAccion, acciones, 'Acción terapéutica');
+                fillSelectDistinct(invLab, labs, 'Laboratorio');
+            }
+
             function applyFilter() {
                 if (!tbl) return;
                 const q = norm(invSearch ? invSearch.value : '');
                 const qb = norm(invBarcode ? invBarcode.value : '');
+
+                const quick = (invQuick && invQuick.value) ? invQuick.value : 'all';
+                const accionSel = (invAccion && invAccion.value) ? norm(invAccion.value) : '';
+                const labSel = (invLab && invLab.value) ? norm(invLab.value) : '';
 
                 let visible = 0;
                 tbl.querySelectorAll('tbody tr.erp-row-select').forEach(tr => {
@@ -149,9 +223,28 @@
                     const codigoCell = tr.querySelector('.col-codigo');
                     const codigo = norm(codigoCell ? codigoCell.textContent : '');
 
+                    const stockCell = tr.querySelector('.col-stock');
+                    const stock = toNum(stockCell ? stockCell.textContent : '0');
+                    const diasCell = tr.querySelector('.col-dias');
+                    const diasTxt = (diasCell ? diasCell.textContent : '').trim();
+                    const dias = diasTxt && diasTxt !== '-' ? parseInt(diasTxt, 10) : null;
+
+                    const accionTxt = norm(tr.querySelector('.col-accion')?.textContent || '');
+                    const labTxt = norm(tr.querySelector('.col-lab')?.textContent || '');
+
                     const okGeneral = !q || rowText.includes(q);
                     const okBarcode = !qb || codigo.includes(qb);
-                    const show = okGeneral && okBarcode;
+
+                    let okQuick = true;
+                    if (quick === 'inStock') okQuick = stock > 0;
+                    else if (quick === 'outOfStock') okQuick = stock <= 0;
+                    else if (quick === 'expiring30') okQuick = (dias !== null) && dias >= 0 && dias <= 30;
+                    else if (quick === 'expired') okQuick = (dias !== null) && dias < 0;
+
+                    const okAccion = !accionSel || accionTxt === accionSel;
+                    const okLab = !labSel || labTxt === labSel;
+
+                    const show = okGeneral && okBarcode && okQuick && okAccion && okLab;
 
                     tr.style.display = show ? '' : 'none';
                     if (show) visible++;
@@ -162,6 +255,24 @@
 
             if (invSearch) invSearch.addEventListener('input', applyFilter);
             if (invBarcode) invBarcode.addEventListener('input', applyFilter);
+            if (btnInvSearch && invSearch) btnInvSearch.addEventListener('click', () => { invSearch.focus(); applyFilter(); });
+            if (btnInvBarcode && invBarcode) btnInvBarcode.addEventListener('click', () => { invBarcode.focus(); applyFilter(); });
+            if (invQuick) invQuick.addEventListener('change', applyFilter);
+            if (invAccion) invAccion.addEventListener('change', applyFilter);
+            if (invLab) invLab.addEventListener('change', applyFilter);
+
+            if (btnInvClear) {
+                btnInvClear.addEventListener('click', () => {
+                    if (invSearch) invSearch.value = '';
+                    if (invBarcode) invBarcode.value = '';
+                    if (invQuick) invQuick.value = 'all';
+                    if (invAccion) invAccion.value = '';
+                    if (invLab) invLab.value = '';
+                    applyFilter();
+                });
+            }
+
+            initFilterOptions();
         })();
     </script>
 }
