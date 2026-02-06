@@ -92,7 +92,10 @@
             </div>
 
             <div class="col-md-3">
-                <label class="form-label form-label-sm">Laboratorio</label>
+                <div class="d-flex justify-content-between align-items-center">
+                    <label class="form-label form-label-sm mb-0">Laboratorio</label>
+                    <a class="small" asp-area="Inventarios" asp-controller="Marcas" asp-action="Create">Nueva</a>
+                </div>
                 <select asp-for="MarcaId" class="form-select form-select-sm" asp-items="ViewBag.Marcas">
                     <option value="">(Sin marca)</option>
                 </select>

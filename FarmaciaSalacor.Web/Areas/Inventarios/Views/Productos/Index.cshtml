@@ -20,6 +20,9 @@
         <a class="btn btn-success btn-sm" asp-action="Create">
             <i class="fa-solid fa-plus"></i> Nuevo
         </a>
+        <a class="btn btn-outline-secondary btn-sm" asp-area="Inventarios" asp-controller="Marcas" asp-action="Index" title="Administrar laboratorios">
+            <i class="fa-solid fa-industry"></i> Laboratorios
+        </a>
         <a id="btnEditar" class="btn btn-primary btn-sm disabled" href="#" aria-disabled="true">
             <i class="fa-solid fa-pen"></i> Editar
         </a>
@@ -27,42 +30,54 @@
             <i class="fa-solid fa-trash"></i> Eliminar
         </a>
         <div class="ms-auto d-flex align-items-center gap-2">
-            <div class="input-group input-group-sm" style="max-width:260px;">
-                <input id="invSearch" class="form-control" placeholder="Buscar medicamento" autocomplete="off" />
-                <button id="btnInvSearch" class="btn btn-outline-secondary" type="button" title="Buscar">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                </button>
-            </div>
-
-            <div class="input-group input-group-sm" style="max-width:240px;">
-                <input id="invBarcode" class="form-control" placeholder="Código de barras..." autocomplete="off" />
-                <button id="btnInvBarcode" class="btn btn-outline-secondary" type="button" title="Buscar por código">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                </button>
-            </div>
-
-            <select id="invQuick" class="form-select form-select-sm" style="max-width:190px;" title="Filtros rápidos">
-                <option value="all">(Todos)</option>
-                <option value="inStock">Con existencia</option>
-                <option value="outOfStock">Sin existencia</option>
-                <option value="expiring30">Vence en 30 días</option>
-                <option value="expired">Vencidos</option>
-            </select>
-
-            <select id="invAccion" class="form-select form-select-sm" style="max-width:210px;" title="Acción terapéutica">
-                <option value="">Acción terapéutica</option>
-            </select>
-
-            <select id="invLab" class="form-select form-select-sm" style="max-width:190px;" title="Laboratorio">
-                <option value="">Laboratorio</option>
-            </select>
-
-            <button id="btnInvClear" class="btn btn-outline-secondary btn-sm" type="button" title="Limpiar filtros">
-                <i class="fa-solid fa-xmark"></i>
+            <button class="btn btn-outline-secondary btn-sm" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#invFilterPanel"
+                    aria-expanded="false" aria-controls="invFilterPanel" title="Buscar y filtrar">
+                <i class="fa-solid fa-filter"></i> Filtros
             </button>
 
             <div class="text-muted small align-self-center ms-2">
                 Total: <strong id="lblInvTotal">@Model.Count</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="collapse" id="invFilterPanel">
+        <div class="p-2 border-top">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <div class="input-group input-group-sm" style="max-width:260px;">
+                    <input id="invSearch" class="form-control" placeholder="Buscar medicamento" autocomplete="off" />
+                    <button id="btnInvSearch" class="btn btn-outline-secondary" type="button" title="Buscar">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                </div>
+
+                <div class="input-group input-group-sm" style="max-width:240px;">
+                    <input id="invBarcode" class="form-control" placeholder="Código de barras..." autocomplete="off" />
+                    <button id="btnInvBarcode" class="btn btn-outline-secondary" type="button" title="Buscar por código">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                </div>
+
+                <select id="invQuick" class="form-select form-select-sm" style="max-width:190px;" title="Filtros rápidos">
+                    <option value="all">(Todos)</option>
+                    <option value="inStock">Con existencia</option>
+                    <option value="outOfStock">Sin existencia</option>
+                    <option value="expiring30">Vence en 30 días</option>
+                    <option value="expired">Vencidos</option>
+                </select>
+
+                <select id="invAccion" class="form-select form-select-sm" style="max-width:210px;" title="Acción terapéutica">
+                    <option value="">Acción terapéutica</option>
+                </select>
+
+                <select id="invLab" class="form-select form-select-sm" style="max-width:190px;" title="Laboratorio">
+                    <option value="">Laboratorio</option>
+                </select>
+
+                <button id="btnInvClear" class="btn btn-outline-secondary btn-sm" type="button" title="Limpiar filtros">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
         </div>
     </div>
