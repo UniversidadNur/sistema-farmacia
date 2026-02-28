@@ -128,7 +128,8 @@ namespace FarmaciaSalacor.Web.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<decimal>("Cantidad")
-                        .HasColumnType("TEXT");
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("CompraId")
                         .HasColumnType("INTEGER");
@@ -160,7 +161,8 @@ namespace FarmaciaSalacor.Web.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<decimal>("Cantidad")
-                        .HasColumnType("TEXT");
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("ProductoId")
                         .HasColumnType("INTEGER");
@@ -184,7 +186,8 @@ namespace FarmaciaSalacor.Web.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<decimal>("Cantidad")
-                        .HasColumnType("TEXT");
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("PrecioUnitario")
                         .HasPrecision(18, 2)
@@ -227,7 +230,8 @@ namespace FarmaciaSalacor.Web.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<decimal>("Stock")
-                        .HasColumnType("TEXT");
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateOnly?>("Vencimiento")
                         .HasColumnType("TEXT");
@@ -266,7 +270,8 @@ namespace FarmaciaSalacor.Web.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<decimal>("Cantidad")
-                        .HasColumnType("TEXT");
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Documento")
                         .HasMaxLength(60)
@@ -373,7 +378,8 @@ namespace FarmaciaSalacor.Web.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<decimal>("Stock")
-                        .HasColumnType("TEXT");
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateOnly?>("Vencimiento")
                         .HasColumnType("TEXT");

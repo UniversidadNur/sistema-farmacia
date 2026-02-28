@@ -52,17 +52,20 @@ public class AppDbContext : DbContext
             entity.HasIndex(x => x.Codigo).IsUnique();
             entity.Property(x => x.Codigo).HasMaxLength(30);
             entity.Property(x => x.Nombre).HasMaxLength(160);
+            entity.Property(x => x.Stock).HasPrecision(18, 2);
             entity.Property(x => x.Precio).HasPrecision(18, 2);
         });
 
         modelBuilder.Entity<DetalleVenta>(entity =>
         {
+            entity.Property(x => x.Cantidad).HasPrecision(18, 2);
             entity.Property(x => x.PrecioUnitario).HasPrecision(18, 2);
             entity.Property(x => x.Subtotal).HasPrecision(18, 2);
         });
 
         modelBuilder.Entity<DetalleCompra>(entity =>
         {
+            entity.Property(x => x.Cantidad).HasPrecision(18, 2);
             entity.Property(x => x.CostoUnitario).HasPrecision(18, 2);
             entity.Property(x => x.Subtotal).HasPrecision(18, 2);
         });
@@ -88,12 +91,19 @@ public class AppDbContext : DbContext
         {
             entity.Property(x => x.Documento).HasMaxLength(60);
             entity.Property(x => x.Tipo).HasMaxLength(30);
+            entity.Property(x => x.Cantidad).HasPrecision(18, 2);
         });
 
         modelBuilder.Entity<Lote>(entity =>
         {
             entity.Property(x => x.NumeroLote).HasMaxLength(40);
+            entity.Property(x => x.Stock).HasPrecision(18, 2);
             entity.HasIndex(x => new { x.ProductoId, x.NumeroLote }).IsUnique();
+        });
+
+        modelBuilder.Entity<DetalleTransferencia>(entity =>
+        {
+            entity.Property(x => x.Cantidad).HasPrecision(18, 2);
         });
 
         modelBuilder.Entity<Almacen>(entity =>
