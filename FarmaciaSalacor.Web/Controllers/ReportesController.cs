@@ -38,6 +38,13 @@ public class ReportesController : Controller
             .Where(x => x.Activo && x.Stock <= th)
             .OrderBy(x => x.Stock)
             .ThenBy(x => x.Nombre)
+            .Select(x => new Producto
+            {
+                Id = x.Id,
+                Codigo = x.Codigo,
+                Nombre = x.Nombre,
+                Stock = x.Stock
+            })
             .ToListAsync();
 
         return View(items);
