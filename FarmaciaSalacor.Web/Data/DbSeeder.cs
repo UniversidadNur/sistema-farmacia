@@ -8,6 +8,42 @@ public static class DbSeeder
 {
     public static async Task SeedAsync(AppDbContext db)
     {
+        // Reset controlado de credenciales (pensado para producción/Railway).
+        // Si se define FARMACIA_RESET_ADMIN_PASSWORD, se actualiza (o crea) el usuario indicado
+        // y se fuerza Rol Admin + Activo=true.
+        var resetPassword = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_PASSWORD");
+        if (!string.IsNullOrWhiteSpace(resetPassword))
+        {
+            var resetUsername = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_USERNAME");
+            if (string.IsNullOrWhiteSpace(resetUsername))
+            {
+                resetUsername = "admin";
+            }
+
+            var user = await db.Usuarios.FirstOrDefaultAsync(x => x.Username == resetUsername);
+            if (user is null)
+            {
+                user = new Usuario
+                {
+                    Username = resetUsername,
+                    NombreCompleto = "Administrador",
+                    Rol = Roles.Admin,
+                    Activo = true
+                };
+                db.Usuarios.Add(user);
+            }
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(resetPassword);
+            user.Rol = Roles.Admin;
+            user.Activo = true;
+
+            await db.SaveChangesAsync();
+
+            // No hacemos seed masivo si ya estás usando la app.
+            // IMPORTANTE: quitar FARMACIA_RESET_ADMIN_PASSWORD luego de recuperar acceso.
+            return;
+        }
+
         if (await db.Usuarios.AnyAsync())
         {
             return;
