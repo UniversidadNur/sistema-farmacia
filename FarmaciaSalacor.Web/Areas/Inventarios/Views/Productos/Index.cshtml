@@ -20,6 +20,13 @@
         <a class="btn btn-success btn-sm" asp-action="Create">
             <i class="fa-solid fa-plus"></i> Nuevo
         </a>
+        <form id="formImport" asp-action="Import" method="post" enctype="multipart/form-data" style="display:inline-block; margin-left:6px;">
+            @Html.AntiForgeryToken()
+            <input id="fileImport" name="file" type="file" accept=".txt" style="display:none" />
+            <button id="btnImport" type="button" class="btn btn-outline-primary btn-sm" title="Importar desde .txt">
+                <i class="fa-solid fa-file-import"></i> Importar .txt
+            </button>
+        </form>
         <a class="btn btn-outline-secondary btn-sm" asp-area="Inventarios" asp-controller="Marcas" asp-action="Index" title="Administrar laboratorios">
             <i class="fa-solid fa-industry"></i> Laboratorios
         </a>
@@ -41,6 +48,13 @@
             </div>
         </div>
     </div>
+
+    @if (TempData["ImportMessage"] != null)
+    {
+        <div class="p-2">
+            <div class="alert alert-info" role="alert">@TempData["ImportMessage"]</div>
+        </div>
+    }
 
     <div class="collapse" id="invFilterPanel">
         <div class="p-2 border-top">
@@ -154,6 +168,8 @@
             const invLab = document.getElementById('invLab');
             const btnInvClear = document.getElementById('btnInvClear');
             const lblInvTotal = document.getElementById('lblInvTotal');
+            const btnImport = document.getElementById('btnImport');
+            const fileImport = document.getElementById('fileImport');
 
             function setSelected(id) {
                 if (!id) {
@@ -284,6 +300,19 @@
                     if (invAccion) invAccion.value = '';
                     if (invLab) invLab.value = '';
                     applyFilter();
+                });
+            }
+
+            if (btnImport && fileImport) {
+                btnImport.addEventListener('click', () => fileImport.click());
+                fileImport.addEventListener('change', function () {
+                    if (this.files && this.files.length > 0) {
+                        if (confirm('Importar productos desde el archivo seleccionado?')) {
+                            // submit the enclosing form
+                            const frm = document.getElementById('formImport');
+                            if (frm) frm.submit();
+                        }
+                    }
                 });
             }
 
