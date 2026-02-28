@@ -240,6 +240,64 @@ public class ProductosController : Controller
         return View(items);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> Export()
+    {
+        ViewBag.ActiveModule = "Inventarios";
+        ViewBag.ActiveSubModule = "Productos";
+
+        var items = await _db.Productos
+            .AsNoTracking()
+            .Include(x => x.Categoria)
+            .Include(x => x.Marca)
+            .OrderBy(x => x.Nombre)
+            .ToListAsync();
+
+        static int? DiasParaVencimiento(DateOnly? vencimiento)
+        {
+            if (!vencimiento.HasValue) return null;
+            var d = vencimiento.Value.ToDateTime(TimeOnly.MinValue).Date;
+            return (d - DateTime.Today).Days;
+        }
+
+        var sb = new StringBuilder(capacity: 1024 + (items.Count * 128));
+        sb.AppendLine("Cod\tNombre Comercial\tNombre Genérico\tForma Farmacéutica\tConcentración\tAcción Terapéutica\tPresentación\tLaboratorio\tPrecio Venta\tExistencia\tVencimiento\tDías");
+
+        foreach (var p in items)
+        {
+            var cod = p.Codigo ?? string.Empty;
+            var nombre = p.Nombre ?? string.Empty;
+            var generico = string.IsNullOrWhiteSpace(p.NombreGenerico) ? "-" : p.NombreGenerico;
+            var forma = string.IsNullOrWhiteSpace(p.FormaFarmaceutica) ? "-" : p.FormaFarmaceutica;
+            var conc = string.IsNullOrWhiteSpace(p.Concentracion) ? "-" : p.Concentracion;
+            var accion = p.Categoria?.Nombre ?? "-";
+            var presentacion = string.IsNullOrWhiteSpace(p.Presentacion) ? "-" : p.Presentacion;
+            var lab = p.Marca?.Nombre ?? "-";
+            var precio = p.Precio.ToString("0.00", CultureInfo.InvariantCulture);
+            var stock = p.Stock.ToString("0.00", CultureInfo.InvariantCulture);
+            var venc = p.Vencimiento.HasValue ? p.Vencimiento.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : "-";
+            var dias = DiasParaVencimiento(p.Vencimiento)?.ToString(CultureInfo.InvariantCulture) ?? "-";
+
+            sb.Append(cod).Append('\t')
+                .Append(nombre).Append('\t')
+                .Append(generico).Append('\t')
+                .Append(forma).Append('\t')
+                .Append(conc).Append('\t')
+                .Append(accion).Append('\t')
+                .Append(presentacion).Append('\t')
+                .Append(lab).Append('\t')
+                .Append(precio).Append('\t')
+                .Append(stock).Append('\t')
+                .Append(venc).Append('\t')
+                .Append(dias)
+                .AppendLine();
+        }
+
+        var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+        var filename = $"productos_{DateTime.Now:yyyyMMdd_HHmm}.txt";
+        return File(bytes, "text/plain; charset=utf-8", filename);
+    }
+
     [Authorize(Roles = Roles.Admin + "," + Roles.Almacen)]
     [HttpGet]
     public async Task<IActionResult> Create()
