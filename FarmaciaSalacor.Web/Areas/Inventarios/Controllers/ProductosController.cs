@@ -2,6 +2,8 @@ using FarmaciaSalacor.Web.Data;
 using FarmaciaSalacor.Web.Models;
 using System.IO;
 using System.Linq;
+using System.Globalization;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +16,25 @@ namespace FarmaciaSalacor.Web.Areas.Inventarios.Controllers;
 public class ProductosController : Controller
 {
     private readonly AppDbContext _db;
+
+    private static string NormalizeHeader(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+
+        // Lowercase + trim + remove diacritics (Acción -> accion)
+        var normalized = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(normalized.Length);
+        foreach (var ch in normalized)
+        {
+            var category = CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (category != UnicodeCategory.NonSpacingMark)
+            {
+                sb.Append(ch);
+            }
+        }
+
+        return sb.ToString().Normalize(NormalizationForm.FormC);
+    }
 
     public ProductosController(AppDbContext db)
     {
@@ -57,9 +78,9 @@ public class ProductosController : Controller
         else if (header.Contains(',')) delim = ',';
 
         // parse header columns if present
-        var headers = header.Split(delim).Select(h => h.Trim().ToLowerInvariant()).ToArray();
+        var headers = header.Split(delim).Select(NormalizeHeader).ToArray();
         int startLine = 0;
-        bool hasHeader = headers.Any(h => h.Contains("codigo") || h.Contains("nombre"));
+        bool hasHeader = headers.Any(h => h.Contains("codigo") || h.Contains("cod") || h.Contains("nombre"));
         if (hasHeader) startLine = 1;
 
         var created = 0;
@@ -69,13 +90,21 @@ public class ProductosController : Controller
         {
             var row = lines[i];
             var parts = row.Split(delim).Select(p => p.Trim()).ToArray();
-            string GetField(string name, int idx)
+
+            // Some exports include an extra empty first column, shifting all values by +1.
+            if (hasHeader && parts.Length == headers.Length + 1 && string.IsNullOrWhiteSpace(parts[0]))
+            {
+                parts = parts.Skip(1).ToArray();
+            }
+
+            string GetFieldByHeaderContains(string headerContains, int idx)
             {
                 if (hasHeader)
                 {
+                    var needle = NormalizeHeader(headerContains);
                     for (int j = 0; j < headers.Length; j++)
                     {
-                        if (headers[j].Contains(name)) return j < parts.Length ? parts[j] : string.Empty;
+                        if (headers[j].Contains(needle)) return j < parts.Length ? parts[j] : string.Empty;
                     }
                     return string.Empty;
                 }
@@ -85,25 +114,51 @@ public class ProductosController : Controller
                 }
             }
 
-            var codigo = GetField("codigo", 0);
-            var nombre = GetField("nombre", 1);
-            var nombreGen = GetField("generico", 2);
-            var forma = GetField("forma", 3);
-            var conc = GetField("concentr", 4);
-            var categoriaName = GetField("categoria", 5);
-            var marcaName = GetField("marca", 6);
-            var presentacion = GetField("presentacion", 7);
-            var stockTxt = GetField("stock", 8);
-            var precioTxt = GetField("precio", 9);
-            var vencTxt = GetField("venc", 10);
+            string GetFieldAny(int idx, params string[] headerContainsCandidates)
+            {
+                if (!hasHeader) return idx < parts.Length ? parts[idx] : string.Empty;
+
+                foreach (var candidate in headerContainsCandidates)
+                {
+                    var val = GetFieldByHeaderContains(candidate, idx);
+                    if (!string.IsNullOrWhiteSpace(val)) return val;
+                }
+                return string.Empty;
+            }
+
+            var codigo = GetFieldAny(0, "codigo", "cod");
+            var nombre = GetFieldAny(1, "nombre comercial", "nombre");
+            var nombreGen = GetFieldAny(2, "nombre generico", "generico");
+            var forma = GetFieldAny(3, "forma farmaceutica", "forma");
+            var conc = GetFieldAny(4, "concentracion", "concentr");
+
+            // En algunos proveedores la categoría viene como “Acción Terapéutica”.
+            var categoriaName = GetFieldAny(5, "categoria", "accion terapeutica", "accion");
+
+            // En algunos proveedores la marca viene como “Laboratorio”.
+            var marcaName = GetFieldAny(6, "marca", "laboratorio", "lab");
+
+            var presentacion = GetFieldAny(7, "presentacion");
+            var stockTxt = GetFieldAny(8, "stock", "existencia");
+            var precioTxt = GetFieldAny(9, "precio venta", "precio");
+            var vencTxt = GetFieldAny(10, "vencimiento", "venc");
 
             if (string.IsNullOrWhiteSpace(codigo) || string.IsNullOrWhiteSpace(nombre)) continue;
 
-            var prod = await _db.Productos.Include(p => p.Categoria).Include(p => p.Marca).FirstOrDefaultAsync(p => p.Codigo == codigo);
-            bool isNew = prod is null;
-            if (isNew)
+            var prod = await _db.Productos
+                .Include(p => p.Categoria)
+                .Include(p => p.Marca)
+                .FirstOrDefaultAsync(p => p.Codigo == codigo);
+
+            bool isNew;
+            if (prod is null)
             {
                 prod = new Producto { Codigo = codigo };
+                isNew = true;
+            }
+            else
+            {
+                isNew = false;
             }
 
             prod.Nombre = nombre;
@@ -120,7 +175,8 @@ public class ProductosController : Controller
             if (!string.IsNullOrWhiteSpace(categoriaName))
             {
                 var catName = categoriaName.Trim();
-                var cat = await _db.Categorias.FirstOrDefaultAsync(c => c.Nombre.ToLower() == catName.ToLower());
+                var catNameLower = catName.ToLower();
+                var cat = await _db.Categorias.FirstOrDefaultAsync(c => c.Nombre != null && c.Nombre.ToLower() == catNameLower);
                 if (cat is null)
                 {
                     cat = new Categoria { Nombre = catName };
@@ -134,7 +190,8 @@ public class ProductosController : Controller
             if (!string.IsNullOrWhiteSpace(marcaName))
             {
                 var mName = marcaName.Trim();
-                var m = await _db.Marcas.FirstOrDefaultAsync(x => x.Nombre.ToLower() == mName.ToLower());
+                var mNameLower = mName.ToLower();
+                var m = await _db.Marcas.FirstOrDefaultAsync(x => x.Nombre != null && x.Nombre.ToLower() == mNameLower);
                 if (m is null)
                 {
                     m = new Marca { Nombre = mName };

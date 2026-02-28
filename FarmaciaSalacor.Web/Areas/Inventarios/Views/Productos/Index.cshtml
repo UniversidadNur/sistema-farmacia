@@ -17,25 +17,27 @@
 
 <div class="erp-panel">
     <div class="erp-toolbar">
-        <a class="btn btn-success btn-sm" asp-action="Create">
-            <i class="fa-solid fa-plus"></i> Nuevo
-        </a>
-        <form id="formImport" asp-action="Import" method="post" enctype="multipart/form-data" style="display:inline-block; margin-left:6px;">
-            @Html.AntiForgeryToken()
-            <input id="fileImport" name="file" type="file" accept=".txt" style="display:none" />
-            <button id="btnImport" type="button" class="btn btn-outline-primary btn-sm" title="Importar desde .txt">
-                <i class="fa-solid fa-file-import"></i> Importar .txt
-            </button>
-        </form>
-        <a class="btn btn-outline-secondary btn-sm" asp-area="Inventarios" asp-controller="Marcas" asp-action="Index" title="Administrar laboratorios">
-            <i class="fa-solid fa-industry"></i> Laboratorios
-        </a>
-        <a id="btnEditar" class="btn btn-primary btn-sm disabled" href="#" aria-disabled="true">
-            <i class="fa-solid fa-pen"></i> Editar
-        </a>
-        <a id="btnEliminar" class="btn btn-danger btn-sm disabled" href="#" aria-disabled="true">
-            <i class="fa-solid fa-trash"></i> Eliminar
-        </a>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <a class="btn btn-success btn-sm" asp-action="Create">
+                <i class="fa-solid fa-plus"></i> Nuevo
+            </a>
+            <form id="formImport" asp-area="Inventarios" asp-controller="Productos" asp-action="Import" method="post" enctype="multipart/form-data" style="display:inline-block;">
+                @Html.AntiForgeryToken()
+                <input id="fileImport" name="file" type="file" accept=".txt" style="display:none" />
+                <button id="btnImport" type="button" class="btn btn-outline-primary btn-sm" title="Importar productos desde .txt">
+                    <i class="fa-solid fa-file-import"></i> Importar productos (.txt)
+                </button>
+            </form>
+            <a class="btn btn-outline-secondary btn-sm" asp-area="Inventarios" asp-controller="Marcas" asp-action="Index" title="Administrar laboratorios">
+                <i class="fa-solid fa-industry"></i> Laboratorios
+            </a>
+            <a id="btnEditar" class="btn btn-primary btn-sm disabled" href="#" aria-disabled="true">
+                <i class="fa-solid fa-pen"></i> Editar
+            </a>
+            <a id="btnEliminar" class="btn btn-danger btn-sm disabled" href="#" aria-disabled="true">
+                <i class="fa-solid fa-trash"></i> Eliminar
+            </a>
+        </div>
         <div class="ms-auto d-flex align-items-center gap-2">
             <button class="btn btn-outline-secondary btn-sm" type="button"
                     data-bs-toggle="collapse" data-bs-target="#invFilterPanel"
