@@ -1,0 +1,247 @@
+From 8053676ff54bba7bc9d41a423a1604353bc0e4da Mon Sep 17 00:00:00 2001
+From: Tadeovargasalvarez <772606@nur.edu.bo>
+Date: Fri, 27 Feb 2026 22:32:19 -0400
+Subject: [PATCH] =?UTF-8?q?A=C3=B1adir=20importador=20.txt=20para=20produc?=
+ =?UTF-8?q?tos=20y=20bot=C3=B3n=20en=20vista?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ .../Controllers/ProductosController.cs        | 151 ++++++++++++++++++
+ .../Inventarios/Views/Productos/Index.cshtml  |  29 ++++
+ 2 files changed, 180 insertions(+)
+
+diff --git a/FarmaciaSalacor.Web/Areas/Inventarios/Controllers/ProductosController.cs b/FarmaciaSalacor.Web/Areas/Inventarios/Controllers/ProductosController.cs
+index 6e218c6..f0c4f68 100644
+--- a/FarmaciaSalacor.Web/Areas/Inventarios/Controllers/ProductosController.cs
++++ b/FarmaciaSalacor.Web/Areas/Inventarios/Controllers/ProductosController.cs
+@@ -1,6 +1,9 @@
+ using FarmaciaSalacor.Web.Data;
+ using FarmaciaSalacor.Web.Models;
++using System.IO;
++using System.Linq;
+ using Microsoft.AspNetCore.Authorization;
++using Microsoft.AspNetCore.Http;
+ using Microsoft.AspNetCore.Mvc;
+ using Microsoft.AspNetCore.Mvc.Rendering;
+ using Microsoft.EntityFrameworkCore;
+@@ -17,6 +20,154 @@ public class ProductosController : Controller
+         _db = db;
+     }
+ 
++    [Authorize(Roles = Roles.Admin + "," + Roles.Almacen)]
++    [HttpPost]
++    [ValidateAntiForgeryToken]
++    public async Task<IActionResult> Import(IFormFile file)
++    {
++        ViewBag.ActiveModule = "Inventarios";
++        ViewBag.ActiveSubModule = "Productos";
++
++        if (file is null || file.Length == 0)
++        {
++            TempData["ImportMessage"] = "Archivo no válido.";
++            return RedirectToAction(nameof(Index));
++        }
++
++        using var sr = new StreamReader(file.OpenReadStream());
++        var content = await sr.ReadToEndAsync();
++        if (string.IsNullOrWhiteSpace(content))
++        {
++            TempData["ImportMessage"] = "Archivo vacío.";
++            return RedirectToAction(nameof(Index));
++        }
++
++        var lines = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
++        if (lines.Length == 0)
++        {
++            TempData["ImportMessage"] = "No se encontraron líneas en el archivo.";
++            return RedirectToAction(nameof(Index));
++        }
++
++        // detect delimiter
++        string header = lines[0];
++        char delim = '\t';
++        if (header.Contains('|')) delim = '|';
++        else if (header.Contains(';')) delim = ';';
++        else if (header.Contains(',')) delim = ',';
++
++        // parse header columns if present
++        var headers = header.Split(delim).Select(h => h.Trim().ToLowerInvariant()).ToArray();
++        int startLine = 0;
++        bool hasHeader = headers.Any(h => h.Contains("codigo") || h.Contains("nombre"));
++        if (hasHeader) startLine = 1;
++
++        var created = 0;
++        var updated = 0;
++
++        for (int i = startLine; i < lines.Length; i++)
++        {
++            var row = lines[i];
++            var parts = row.Split(delim).Select(p => p.Trim()).ToArray();
++            string GetField(string name, int idx)
++            {
++                if (hasHeader)
++                {
++                    for (int j = 0; j < headers.Length; j++)
++                    {
++                        if (headers[j].Contains(name)) return j < parts.Length ? parts[j] : string.Empty;
++                    }
++                    return string.Empty;
++                }
++                else
++                {
++                    return idx < parts.Length ? parts[idx] : string.Empty;
++                }
++            }
++
++            var codigo = GetField("codigo", 0);
++            var nombre = GetField("nombre", 1);
++            var nombreGen = GetField("generico", 2);
++            var forma = GetField("forma", 3);
++            var conc = GetField("concentr", 4);
++            var categoriaName = GetField("categoria", 5);
++            var marcaName = GetField("marca", 6);
++            var presentacion = GetField("presentacion", 7);
++            var stockTxt = GetField("stock", 8);
++            var precioTxt = GetField("precio", 9);
++            var vencTxt = GetField("venc", 10);
++
++            if (string.IsNullOrWhiteSpace(codigo) || string.IsNullOrWhiteSpace(nombre)) continue;
++
++            var prod = await _db.Productos.Include(p => p.Categoria).Include(p => p.Marca).FirstOrDefaultAsync(p => p.Codigo == codigo);
++            bool isNew = prod is null;
++            if (isNew)
++            {
++                prod = new Producto { Codigo = codigo };
++            }
++
++            prod.Nombre = nombre;
++            prod.NombreGenerico = string.IsNullOrWhiteSpace(nombreGen) ? null : nombreGen;
++            prod.FormaFarmaceutica = string.IsNullOrWhiteSpace(forma) ? null : forma;
++            prod.Concentracion = string.IsNullOrWhiteSpace(conc) ? null : conc;
++            prod.Presentacion = string.IsNullOrWhiteSpace(presentacion) ? null : presentacion;
++
++            if (decimal.TryParse(stockTxt?.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var stock)) prod.Stock = stock;
++            if (decimal.TryParse(precioTxt?.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var precio)) prod.Precio = precio;
++            if (DateOnly.TryParse(vencTxt, out var d)) prod.Vencimiento = d;
++
++            // Categoria
++            if (!string.IsNullOrWhiteSpace(categoriaName))
++            {
++                var catName = categoriaName.Trim();
++                var cat = await _db.Categorias.FirstOrDefaultAsync(c => c.Nombre.ToLower() == catName.ToLower());
++                if (cat is null)
++                {
++                    cat = new Categoria { Nombre = catName };
++                    _db.Categorias.Add(cat);
++                    await _db.SaveChangesAsync();
++                }
++                prod.CategoriaId = cat.Id;
++            }
++
++            // Marca
++            if (!string.IsNullOrWhiteSpace(marcaName))
++            {
++                var mName = marcaName.Trim();
++                var m = await _db.Marcas.FirstOrDefaultAsync(x => x.Nombre.ToLower() == mName.ToLower());
++                if (m is null)
++                {
++                    m = new Marca { Nombre = mName };
++                    _db.Marcas.Add(m);
++                    await _db.SaveChangesAsync();
++                }
++                prod.MarcaId = m.Id;
++            }
++
++            if (isNew)
++            {
++                _db.Productos.Add(prod);
++                created++;
++            }
++            else
++            {
++                _db.Productos.Update(prod);
++                updated++;
++            }
++
++            // commit periodically to keep memory small
++            if ((created + updated) % 50 == 0)
++            {
++                await _db.SaveChangesAsync();
++            }
++        }
++
++        await _db.SaveChangesAsync();
++
++        TempData["ImportMessage"] = $"Importación completada. Nuevos: {created}, Actualizados: {updated}.";
++        return RedirectToAction(nameof(Index));
++    }
++
+     public async Task<IActionResult> Index()
+     {
+         ViewBag.ActiveModule = "Inventarios";
+diff --git a/FarmaciaSalacor.Web/Areas/Inventarios/Views/Productos/Index.cshtml b/FarmaciaSalacor.Web/Areas/Inventarios/Views/Productos/Index.cshtml
+index e50a852..744c1dc 100644
+--- a/FarmaciaSalacor.Web/Areas/Inventarios/Views/Productos/Index.cshtml
++++ b/FarmaciaSalacor.Web/Areas/Inventarios/Views/Productos/Index.cshtml
+@@ -20,6 +20,13 @@
+         <a class="btn btn-success btn-sm" asp-action="Create">
+             <i class="fa-solid fa-plus"></i> Nuevo
+         </a>
++        <form id="formImport" asp-action="Import" method="post" enctype="multipart/form-data" style="display:inline-block; margin-left:6px;">
++            @Html.AntiForgeryToken()
++            <input id="fileImport" name="file" type="file" accept=".txt" style="display:none" />
++            <button id="btnImport" type="button" class="btn btn-outline-primary btn-sm" title="Importar desde .txt">
++                <i class="fa-solid fa-file-import"></i> Importar .txt
++            </button>
++        </form>
+         <a class="btn btn-outline-secondary btn-sm" asp-area="Inventarios" asp-controller="Marcas" asp-action="Index" title="Administrar laboratorios">
+             <i class="fa-solid fa-industry"></i> Laboratorios
+         </a>
+@@ -42,6 +49,13 @@
+         </div>
+     </div>
+ 
++    @if (TempData["ImportMessage"] != null)
++    {
++        <div class="p-2">
++            <div class="alert alert-info" role="alert">@TempData["ImportMessage"]</div>
++        </div>
++    }
++
+     <div class="collapse" id="invFilterPanel">
+         <div class="p-2 border-top">
+             <div class="d-flex flex-wrap align-items-center gap-2">
+@@ -154,6 +168,8 @@
+             const invLab = document.getElementById('invLab');
+             const btnInvClear = document.getElementById('btnInvClear');
+             const lblInvTotal = document.getElementById('lblInvTotal');
++            const btnImport = document.getElementById('btnImport');
++            const fileImport = document.getElementById('fileImport');
+ 
+             function setSelected(id) {
+                 if (!id) {
+@@ -287,6 +303,19 @@
+                 });
+             }
+ 
++            if (btnImport && fileImport) {
++                btnImport.addEventListener('click', () => fileImport.click());
++                fileImport.addEventListener('change', function () {
++                    if (this.files && this.files.length > 0) {
++                        if (confirm('Importar productos desde el archivo seleccionado?')) {
++                            // submit the enclosing form
++                            const frm = document.getElementById('formImport');
++                            if (frm) frm.submit();
++                        }
++                    }
++                });
++            }
++
+             initFilterOptions();
+         })();
+     </script>
+-- 
+2.53.0.windows.1
+
