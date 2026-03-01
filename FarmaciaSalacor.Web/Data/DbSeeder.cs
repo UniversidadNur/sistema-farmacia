@@ -7,16 +7,24 @@ namespace FarmaciaSalacor.Web.Data;
 
 public static class DbSeeder
 {
-    private static string? GetSetting(IConfiguration? configuration, string key)
+    private static string? GetSetting(IConfiguration? configuration, params string[] keys)
     {
-        var env = Environment.GetEnvironmentVariable(key);
-        if (!string.IsNullOrWhiteSpace(env))
+        foreach (var key in keys)
         {
-            return env;
+            var env = Environment.GetEnvironmentVariable(key);
+            if (!string.IsNullOrWhiteSpace(env))
+            {
+                return env;
+            }
+
+            var cfg = configuration?[key];
+            if (!string.IsNullOrWhiteSpace(cfg))
+            {
+                return cfg;
+            }
         }
 
-        var cfg = configuration?[key];
-        return string.IsNullOrWhiteSpace(cfg) ? null : cfg;
+        return null;
     }
 
     private static string NormalizeEnvSecret(string value)
@@ -39,7 +47,8 @@ public static class DbSeeder
 
     public static async Task<bool> TryResetAdminAsync(AppDbContext db, IConfiguration? configuration)
     {
-        var resetPasswordRaw = GetSetting(configuration, "FARMACIA_RESET_ADMIN_PASSWORD");
+        // Aliases: algunos usuarios los crean como userlogin/password en Railway.
+        var resetPasswordRaw = GetSetting(configuration, "FARMACIA_RESET_ADMIN_PASSWORD", "password");
         if (string.IsNullOrWhiteSpace(resetPasswordRaw))
         {
             return false;
@@ -47,7 +56,7 @@ public static class DbSeeder
 
         var resetPassword = NormalizeEnvSecret(resetPasswordRaw);
 
-        var resetUsername = GetSetting(configuration, "FARMACIA_RESET_ADMIN_USERNAME");
+        var resetUsername = GetSetting(configuration, "FARMACIA_RESET_ADMIN_USERNAME", "userlogin");
         if (string.IsNullOrWhiteSpace(resetUsername))
         {
             resetUsername = "admin";
