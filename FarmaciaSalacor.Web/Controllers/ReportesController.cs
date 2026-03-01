@@ -38,6 +38,16 @@ public class ReportesController : Controller
             .Where(x => x.Activo && x.Stock <= th)
             .OrderBy(x => x.Stock)
             .ThenBy(x => x.Nombre)
+            // Importante: en SQLite, si la DB quedó en una migración antigua y faltan columnas
+            // nuevas de Producto, materializar la entidad completa puede fallar.
+            // Proyectamos solo lo necesario para este reporte.
+            .Select(x => new Producto
+            {
+                Id = x.Id,
+                Codigo = x.Codigo,
+                Nombre = x.Nombre,
+                Stock = x.Stock
+            })
             .ToListAsync();
 
         return View(items);
