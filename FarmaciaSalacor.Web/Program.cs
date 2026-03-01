@@ -272,8 +272,8 @@ app.MapGet("/health/details", (HttpContext ctx) =>
     var version = asm.Version?.ToString() ?? "unknown";
     var env = app.Environment.EnvironmentName;
 
-    var resetActive = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_PASSWORD"));
-    var resetUsername = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_USERNAME") ?? "admin";
+    var resetActive = !string.IsNullOrWhiteSpace(app.Configuration["FARMACIA_RESET_ADMIN_PASSWORD"]);
+    var resetUsername = app.Configuration["FARMACIA_RESET_ADMIN_USERNAME"] ?? "admin";
 
     var railwayServiceId = Environment.GetEnvironmentVariable("RAILWAY_SERVICE_ID") ?? string.Empty;
     var railwayProjectId = Environment.GetEnvironmentVariable("RAILWAY_PROJECT_ID") ?? string.Empty;

@@ -1,11 +1,24 @@
 using FarmaciaSalacor.Web.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using System.Collections.Generic;
 
 namespace FarmaciaSalacor.Web.Data;
 
 public static class DbSeeder
 {
+    private static string? GetSetting(IConfiguration? configuration, string key)
+    {
+        var env = Environment.GetEnvironmentVariable(key);
+        if (!string.IsNullOrWhiteSpace(env))
+        {
+            return env;
+        }
+
+        var cfg = configuration?[key];
+        return string.IsNullOrWhiteSpace(cfg) ? null : cfg;
+    }
+
     private static string NormalizeEnvSecret(string value)
     {
         var v = (value ?? string.Empty).Trim();
@@ -21,9 +34,12 @@ public static class DbSeeder
         return v;
     }
 
-    public static async Task<bool> TryResetAdminAsync(AppDbContext db)
+    public static Task<bool> TryResetAdminAsync(AppDbContext db)
+        => TryResetAdminAsync(db, configuration: null);
+
+    public static async Task<bool> TryResetAdminAsync(AppDbContext db, IConfiguration? configuration)
     {
-        var resetPasswordRaw = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_PASSWORD");
+        var resetPasswordRaw = GetSetting(configuration, "FARMACIA_RESET_ADMIN_PASSWORD");
         if (string.IsNullOrWhiteSpace(resetPasswordRaw))
         {
             return false;
@@ -31,7 +47,7 @@ public static class DbSeeder
 
         var resetPassword = NormalizeEnvSecret(resetPasswordRaw);
 
-        var resetUsername = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_USERNAME");
+        var resetUsername = GetSetting(configuration, "FARMACIA_RESET_ADMIN_USERNAME");
         if (string.IsNullOrWhiteSpace(resetUsername))
         {
             resetUsername = "admin";
@@ -62,9 +78,12 @@ public static class DbSeeder
         return true;
     }
 
-    public static async Task SeedAsync(AppDbContext db)
+    public static Task SeedAsync(AppDbContext db)
+        => SeedAsync(db, configuration: null);
+
+    public static async Task SeedAsync(AppDbContext db, IConfiguration? configuration)
     {
-        if (await TryResetAdminAsync(db))
+        if (await TryResetAdminAsync(db, configuration))
         {
             // No hacemos seed masivo si ya estás usando la app.
             return;
@@ -75,7 +94,7 @@ public static class DbSeeder
             return;
         }
 
-        var seedPassword = Environment.GetEnvironmentVariable("FARMACIA_SEED_ADMIN_PASSWORD");
+        var seedPassword = GetSetting(configuration, "FARMACIA_SEED_ADMIN_PASSWORD");
         if (string.IsNullOrWhiteSpace(seedPassword))
         {
             seedPassword = "123456";

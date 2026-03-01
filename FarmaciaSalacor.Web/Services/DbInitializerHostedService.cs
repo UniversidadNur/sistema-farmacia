@@ -1,5 +1,6 @@
 using FarmaciaSalacor.Web.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace FarmaciaSalacor.Web.Services;
 
@@ -7,11 +8,13 @@ public sealed class DbInitializerHostedService : BackgroundService
 {
     private readonly IServiceProvider _services;
     private readonly ILogger<DbInitializerHostedService> _logger;
+    private readonly IConfiguration _configuration;
 
-    public DbInitializerHostedService(IServiceProvider services, ILogger<DbInitializerHostedService> logger)
+    public DbInitializerHostedService(IServiceProvider services, ILogger<DbInitializerHostedService> logger, IConfiguration configuration)
     {
         _services = services;
         _logger = logger;
+        _configuration = configuration;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -24,7 +27,7 @@ public sealed class DbInitializerHostedService : BackgroundService
 
             try
             {
-                var resetDone = await DbSeeder.TryResetAdminAsync(db);
+                var resetDone = await DbSeeder.TryResetAdminAsync(db, _configuration);
                 if (resetDone)
                 {
                     _logger.LogWarning("Admin credentials reset applied via env vars. Remove FARMACIA_RESET_ADMIN_PASSWORD after login.");
@@ -40,7 +43,7 @@ public sealed class DbInitializerHostedService : BackgroundService
 
             await db.Database.MigrateAsync(timeoutCts.Token);
 
-            await DbSeeder.SeedAsync(db);
+            await DbSeeder.SeedAsync(db, _configuration);
             _logger.LogInformation("Database initialized successfully");
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
