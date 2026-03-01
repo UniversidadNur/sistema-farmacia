@@ -22,6 +22,19 @@ public sealed class DbInitializerHostedService : BackgroundService
             using var scope = _services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
+            try
+            {
+                var resetDone = await DbSeeder.TryResetAdminAsync(db);
+                if (resetDone)
+                {
+                    _logger.LogWarning("Admin credentials reset applied via env vars. Remove FARMACIA_RESET_ADMIN_PASSWORD after login.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Admin reset failed");
+            }
+
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
             timeoutCts.CancelAfter(TimeSpan.FromMinutes(2));
 
