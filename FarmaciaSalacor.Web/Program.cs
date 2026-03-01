@@ -29,15 +29,45 @@ if (builder.Environment.IsDevelopment())
     mvcBuilder.AddRazorRuntimeCompilation();
 }
 
-var providedDefaultConnection = builder.Configuration.GetConnectionString("Default");
-var hasProvidedDefaultConnection = !string.IsNullOrWhiteSpace(providedDefaultConnection);
+var envDefaultConnection = Environment.GetEnvironmentVariable("ConnectionStrings__Default");
+var hasEnvDefaultConnection = !string.IsNullOrWhiteSpace(envDefaultConnection);
 
-var defaultConnection = providedDefaultConnection;
+// Nota: Railway a veces provee DATABASE_URL o MYSQL_URL sin que el usuario cree variables manuales.
+// Preferimos ConnectionStrings__Default si existe, si no intentamos con DATABASE_URL/MYSQL_URL.
+var envDatabaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+if (string.IsNullOrWhiteSpace(envDatabaseUrl))
+{
+    envDatabaseUrl = Environment.GetEnvironmentVariable("MYSQL_URL");
+}
+
+var hasEnvDatabaseUrl = !string.IsNullOrWhiteSpace(envDatabaseUrl);
+
+var configDefaultConnection = builder.Configuration.GetConnectionString("Default");
+var hasConfigDefaultConnection = !string.IsNullOrWhiteSpace(configDefaultConnection);
+
+var defaultConnection = hasEnvDefaultConnection
+    ? envDefaultConnection!
+    : configDefaultConnection;
+
+if (string.IsNullOrWhiteSpace(defaultConnection) && hasEnvDatabaseUrl)
+{
+    defaultConnection = envDatabaseUrl;
+}
+
+if (!hasEnvDefaultConnection && hasEnvDatabaseUrl)
+{
+    // Asegura que si Railway provee MYSQL_URL/DATABASE_URL, no nos quedemos en SQLite por el appsettings.
+    // Solo usamos el URL si parece MySQL/MariaDB.
+    if (LooksLikeMySqlUrl(envDatabaseUrl!))
+    {
+        defaultConnection = envDatabaseUrl;
+    }
+}
+
 if (string.IsNullOrWhiteSpace(defaultConnection))
 {
     // Permite arrancar (y pasar healthchecks) aun cuando el entorno no tenga variables.
-    // En Railway se recomienda configurar ConnectionStrings__Default (por ejemplo: ${{ MySQL.MYSQL_URL }}).
-    Console.Error.WriteLine("WARNING: ConnectionStrings:Default no está configurada. Usando SQLite local como fallback. Configure ConnectionStrings__Default en el entorno para producción.");
+    Console.Error.WriteLine("WARNING: No hay DB configurada (ConnectionStrings__Default/DATABASE_URL/MYSQL_URL). Usando SQLite local como fallback. Configure ConnectionStrings__Default en el entorno para producción.");
     defaultConnection = "Data Source=farmacia.local.db";
 }
 
@@ -251,11 +281,18 @@ app.MapGet("/health/details", (HttpContext ctx) =>
     // Nota: no exponer connection strings. Solo estado y provider.
     var dbMode = isMySql ? "MySql" : "Sqlite";
 
+    var dbSource = hasEnvDefaultConnection
+        ? "Env:ConnectionStrings__Default"
+        : (hasEnvDatabaseUrl && LooksLikeMySqlUrl(envDatabaseUrl!) ? "Env:DATABASE_URL/MYSQL_URL" : "Config(appsettings)");
+
     var text = $"OK\n" +
                $"Env: {env}\n" +
                $"Version: {version}\n" +
                $"DbMode: {dbMode}\n" +
-               $"HasDefaultConnectionString: {hasProvidedDefaultConnection}\n" +
+               $"DbSource: {dbSource}\n" +
+               $"HasEnvDefaultConnection: {hasEnvDefaultConnection}\n" +
+               $"HasEnvDatabaseUrl: {hasEnvDatabaseUrl}\n" +
+               $"HasConfigDefaultConnection: {hasConfigDefaultConnection}\n" +
                $"ResetActive: {resetActive}\n" +
                $"ResetUsername: {resetUsername}\n" +
                $"RailwayServiceId: {(string.IsNullOrWhiteSpace(railwayServiceId) ? "(empty)" : railwayServiceId)}\n" +
