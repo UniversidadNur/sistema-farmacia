@@ -56,6 +56,10 @@
                         Entrar
                     </button>
                 </div>
+
+                <div class="text-muted small mt-3">
+                    Versión: @(ViewBag.BuildVersion ?? "unknown") | ResetActive: @(((ViewBag.ResetActive as bool?) == true) ? "true" : "false")
+                </div>
             </form>
         </div>
     </div>

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using MySqlConnector;
 using System.Net;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -230,6 +231,31 @@ app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Diagnóstico rápido (sin exponer secretos). Útil para verificar despliegue/variables en Railway.
+app.MapGet("/health/details", (HttpContext ctx) =>
+{
+    var asm = Assembly.GetExecutingAssembly().GetName();
+    var version = asm.Version?.ToString() ?? "unknown";
+    var env = app.Environment.EnvironmentName;
+
+    var resetActive = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_PASSWORD"));
+    var resetUsername = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_USERNAME") ?? "admin";
+
+    var railwayServiceId = Environment.GetEnvironmentVariable("RAILWAY_SERVICE_ID") ?? string.Empty;
+    var railwayProjectId = Environment.GetEnvironmentVariable("RAILWAY_PROJECT_ID") ?? string.Empty;
+
+    var text = $"OK\n" +
+               $"Env: {env}\n" +
+               $"Version: {version}\n" +
+               $"ResetActive: {resetActive}\n" +
+               $"ResetUsername: {resetUsername}\n" +
+               $"RailwayServiceId: {(string.IsNullOrWhiteSpace(railwayServiceId) ? "(empty)" : railwayServiceId)}\n" +
+               $"RailwayProjectId: {(string.IsNullOrWhiteSpace(railwayProjectId) ? "(empty)" : railwayProjectId)}\n" +
+               $"TraceId: {ctx.TraceIdentifier}\n";
+
+    return Results.Text(text, "text/plain; charset=utf-8");
+}).AllowAnonymous();
 
 app.MapControllerRoute(
     name: "areas",

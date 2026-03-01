@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection;
 
 namespace FarmaciaSalacor.Web.Controllers;
 
@@ -56,6 +57,7 @@ public class AccountController : Controller
         ViewData["ReturnUrl"] = returnUrl;
         ViewBag.ResetActive = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_PASSWORD"));
         ViewBag.ResetUsername = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_USERNAME") ?? "admin";
+        ViewBag.BuildVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
         return View(new LoginViewModel());
     }
 
@@ -71,6 +73,7 @@ public class AccountController : Controller
         ViewData["ReturnUrl"] = returnUrl;
         ViewBag.ResetActive = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_PASSWORD"));
         ViewBag.ResetUsername = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_USERNAME") ?? "admin";
+        ViewBag.BuildVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
 
         if (!ModelState.IsValid)
         {
