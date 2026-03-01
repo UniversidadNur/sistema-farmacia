@@ -40,6 +40,9 @@
             <a id="btnEliminar" class="btn btn-danger btn-sm disabled" href="#" aria-disabled="true">
                 <i class="fa-solid fa-trash"></i> Eliminar
             </a>
+            <button id="btnSelectAll" class="btn btn-outline-secondary btn-sm" type="button" title="Seleccionar todos los productos visibles">
+                <i class="fa-solid fa-check-double"></i> Seleccionar todo
+            </button>
         </div>
         <div class="ms-auto d-flex align-items-center gap-2">
             <button class="btn btn-outline-secondary btn-sm" type="button"
@@ -135,7 +138,7 @@
                         var dias = DiasParaVencimiento(p.Vencimiento);
                         <tr class="erp-row-select" data-id="@p.Id">
                             <td class="text-center">
-                                <input class="form-check-input" type="radio" name="selProducto" value="@p.Id" />
+                                <input class="form-check-input" type="checkbox" name="selProducto" value="@p.Id" />
                             </td>
                             <td class="col-codigo">@p.Codigo</td>
                             <td class="col-nombre">@p.Nombre</td>
@@ -175,38 +178,64 @@
             const lblInvTotal = document.getElementById('lblInvTotal');
             const btnImport = document.getElementById('btnImport');
             const fileImport = document.getElementById('fileImport');
+            const btnSelectAll = document.getElementById('btnSelectAll');
 
-            function setSelected(id) {
-                if (!id) {
-                    btnEditar.classList.add('disabled');
-                    btnEliminar.classList.add('disabled');
-                    btnEditar.setAttribute('href', '#');
-                    btnEliminar.setAttribute('href', '#');
+            function getSelectedIds() {
+                return Array.from(document.querySelectorAll('input[name="selProducto"]:checked'))
+                    .map(x => x.value)
+                    .filter(Boolean);
+            }
+
+            function updateActionsFromSelection() {
+                const ids = getSelectedIds();
+                if (ids.length === 1) {
+                    const id = ids[0];
+                    btnEditar.classList.remove('disabled');
+                    btnEliminar.classList.remove('disabled');
+                    btnEditar.setAttribute('href', '@Url.Action("Edit")/' + id);
+                    btnEliminar.setAttribute('href', '@Url.Action("Delete")/' + id);
                     return;
                 }
 
-                btnEditar.classList.remove('disabled');
-                btnEliminar.classList.remove('disabled');
-                btnEditar.setAttribute('href', '@Url.Action("Edit")/' + id);
-                btnEliminar.setAttribute('href', '@Url.Action("Delete")/' + id);
+                // 0 o múltiples: evitamos acciones ambiguas.
+                btnEditar.classList.add('disabled');
+                btnEliminar.classList.add('disabled');
+                btnEditar.setAttribute('href', '#');
+                btnEliminar.setAttribute('href', '#');
             }
 
-            document.querySelectorAll('input[name="selProducto"]').forEach(r => {
-                r.addEventListener('change', function () {
-                    setSelected(this.value);
+            document.querySelectorAll('input[name="selProducto"]').forEach(cb => {
+                cb.addEventListener('change', function () {
+                    updateActionsFromSelection();
                 });
             });
 
             document.querySelectorAll('tr.erp-row-select').forEach(tr => {
-                tr.addEventListener('click', function () {
+                tr.addEventListener('click', function (event) {
                     const id = this.getAttribute('data-id');
-                    const radio = this.querySelector('input[name="selProducto"]');
-                    if (radio) {
-                        radio.checked = true;
-                        setSelected(id);
+                    const checkbox = this.querySelector('input[name="selProducto"]');
+                    if (!checkbox) return;
+
+                    // Si el click fue en el propio checkbox, el browser ya lo toggled.
+                    // Si fue en otra parte de la fila, togglear manualmente.
+                    if (!(event && event.target && event.target.matches && event.target.matches('input[name="selProducto"]'))) {
+                        checkbox.checked = !checkbox.checked;
                     }
+
+                    updateActionsFromSelection();
                 });
             });
+
+            if (btnSelectAll && tbl) {
+                btnSelectAll.addEventListener('click', function () {
+                    tbl.querySelectorAll('tbody tr.erp-row-select').forEach(tr => {
+                        if (tr.style.display === 'none') return;
+                        const checkbox = tr.querySelector('input[name="selProducto"]');
+                        if (checkbox) checkbox.checked = true;
+                    });
+                    updateActionsFromSelection();
+                });
+            }
 
             function norm(s) {
                 return ('' + (s ?? '')).trim().toLowerCase();
@@ -287,6 +316,7 @@
                 });
 
                 if (lblInvTotal) lblInvTotal.textContent = '' + visible;
+                updateActionsFromSelection();
             }
 
             if (invSearch) invSearch.addEventListener('input', applyFilter);
