@@ -406,6 +406,48 @@ public class ProductosController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    [Authorize(Roles = Roles.Admin + "," + Roles.Almacen)]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> BulkDelete(int[] ids)
+    {
+        ViewBag.ActiveModule = "Inventarios";
+        ViewBag.ActiveSubModule = "Productos";
+
+        if (ids is null || ids.Length == 0)
+        {
+            TempData["ImportMessage"] = "No hay productos seleccionados.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var distinctIds = ids.Distinct().ToArray();
+
+        var items = await _db.Productos
+            .Where(x => distinctIds.Contains(x.Id))
+            .ToListAsync();
+
+        if (items.Count == 0)
+        {
+            TempData["ImportMessage"] = "No se encontraron productos para eliminar.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        try
+        {
+            _db.Productos.RemoveRange(items);
+            await _db.SaveChangesAsync();
+            TempData["ImportMessage"] = $"Eliminados: {items.Count}.";
+        }
+        catch (DbUpdateException ex)
+        {
+            // Si hay relaciones/constraints, puede fallar.
+            TempData["ImportMessage"] = "No se pudieron eliminar algunos productos por estar relacionados con otras operaciones (ventas/compras).";
+            Console.Error.WriteLine($"BulkDelete failed: {ex.Message}");
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
     private async Task LoadCatalogosAsync()
     {
         var categorias = await _db.Categorias.AsNoTracking().OrderBy(x => x.Nombre).ToListAsync();

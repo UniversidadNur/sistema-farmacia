@@ -40,6 +40,13 @@
             <a id="btnEliminar" class="btn btn-danger btn-sm disabled" href="#" aria-disabled="true">
                 <i class="fa-solid fa-trash"></i> Eliminar
             </a>
+            <form id="formBulkDelete" asp-area="Inventarios" asp-controller="Productos" asp-action="BulkDelete" method="post" style="display:inline-block;">
+                @Html.AntiForgeryToken()
+                <span id="bulkDeleteIds"></span>
+                <button id="btnEliminarSeleccionados" class="btn btn-danger btn-sm disabled" type="submit" aria-disabled="true" title="Eliminar todos los productos seleccionados">
+                    <i class="fa-solid fa-trash"></i> Eliminar seleccionados
+                </button>
+            </form>
             <button id="btnSelectAll" class="btn btn-outline-secondary btn-sm" type="button" title="Seleccionar todos los productos visibles">
                 <i class="fa-solid fa-check-double"></i> Seleccionar todo
             </button>
@@ -179,6 +186,9 @@
             const btnImport = document.getElementById('btnImport');
             const fileImport = document.getElementById('fileImport');
             const btnSelectAll = document.getElementById('btnSelectAll');
+            const formBulkDelete = document.getElementById('formBulkDelete');
+            const bulkDeleteIds = document.getElementById('bulkDeleteIds');
+            const btnEliminarSeleccionados = document.getElementById('btnEliminarSeleccionados');
 
             function getSelectedIds() {
                 return Array.from(document.querySelectorAll('input[name="selProducto"]:checked'))
@@ -186,8 +196,28 @@
                     .filter(Boolean);
             }
 
+            function syncBulkDeleteSelection(ids) {
+                if (!bulkDeleteIds) return;
+                bulkDeleteIds.innerHTML = '';
+                for (const id of ids) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'ids';
+                    input.value = id;
+                    bulkDeleteIds.appendChild(input);
+                }
+
+                if (!btnEliminarSeleccionados) return;
+                const enabled = ids.length > 0;
+                btnEliminarSeleccionados.classList.toggle('disabled', !enabled);
+                btnEliminarSeleccionados.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+            }
+
             function updateActionsFromSelection() {
                 const ids = getSelectedIds();
+
+                syncBulkDeleteSelection(ids);
+
                 if (ids.length === 1) {
                     const id = ids[0];
                     btnEditar.classList.remove('disabled');
@@ -202,6 +232,22 @@
                 btnEliminar.classList.add('disabled');
                 btnEditar.setAttribute('href', '#');
                 btnEliminar.setAttribute('href', '#');
+            }
+
+            if (formBulkDelete) {
+                formBulkDelete.addEventListener('submit', function (e) {
+                    const ids = getSelectedIds();
+                    if (ids.length === 0) {
+                        e.preventDefault();
+                        return;
+                    }
+
+                    const ok = confirm('¿Seguro que deseas eliminar ' + ids.length + ' producto(s)? Esta acción no se puede deshacer.');
+                    if (!ok) {
+                        e.preventDefault();
+                        return;
+                    }
+                });
             }
 
             document.querySelectorAll('input[name="selProducto"]').forEach(cb => {
