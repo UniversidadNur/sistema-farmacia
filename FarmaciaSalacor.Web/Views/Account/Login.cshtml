@@ -24,7 +24,12 @@
 
                 <div class="mb-2">
                     <label asp-for="Password" class="form-label form-label-sm"></label>
-                    <input asp-for="Password" class="form-control form-control-sm" autocomplete="current-password" />
+                    <div class="input-group input-group-sm">
+                        <input asp-for="Password" id="loginPassword" class="form-control" autocomplete="current-password" />
+                        <button class="btn btn-outline-secondary" type="button" id="toggleLoginPassword" aria-label="Mostrar u ocultar contraseña">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
                     <span asp-validation-for="Password" class="text-danger small"></span>
                 </div>
 
@@ -50,4 +55,22 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const input = document.getElementById('loginPassword');
+            const button = document.getElementById('toggleLoginPassword');
+            if (!input || !button) return;
+
+            button.addEventListener('click', function () {
+                const isPassword = (input.getAttribute('type') || '').toLowerCase() === 'password';
+                input.setAttribute('type', isPassword ? 'text' : 'password');
+
+                const icon = button.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-eye', !isPassword);
+                    icon.classList.toggle('fa-eye-slash', isPassword);
+                }
+            });
+        });
+    </script>
 }
