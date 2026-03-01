@@ -29,7 +29,10 @@ if (builder.Environment.IsDevelopment())
     mvcBuilder.AddRazorRuntimeCompilation();
 }
 
-var defaultConnection = builder.Configuration.GetConnectionString("Default");
+var providedDefaultConnection = builder.Configuration.GetConnectionString("Default");
+var hasProvidedDefaultConnection = !string.IsNullOrWhiteSpace(providedDefaultConnection);
+
+var defaultConnection = providedDefaultConnection;
 if (string.IsNullOrWhiteSpace(defaultConnection))
 {
     // Permite arrancar (y pasar healthchecks) aun cuando el entorno no tenga variables.
@@ -245,9 +248,14 @@ app.MapGet("/health/details", (HttpContext ctx) =>
     var railwayServiceId = Environment.GetEnvironmentVariable("RAILWAY_SERVICE_ID") ?? string.Empty;
     var railwayProjectId = Environment.GetEnvironmentVariable("RAILWAY_PROJECT_ID") ?? string.Empty;
 
+    // Nota: no exponer connection strings. Solo estado y provider.
+    var dbMode = isMySql ? "MySql" : "Sqlite";
+
     var text = $"OK\n" +
                $"Env: {env}\n" +
                $"Version: {version}\n" +
+               $"DbMode: {dbMode}\n" +
+               $"HasDefaultConnectionString: {hasProvidedDefaultConnection}\n" +
                $"ResetActive: {resetActive}\n" +
                $"ResetUsername: {resetUsername}\n" +
                $"RailwayServiceId: {(string.IsNullOrWhiteSpace(railwayServiceId) ? "(empty)" : railwayServiceId)}\n" +
