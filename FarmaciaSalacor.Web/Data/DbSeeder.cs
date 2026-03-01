@@ -6,6 +6,21 @@ namespace FarmaciaSalacor.Web.Data;
 
 public static class DbSeeder
 {
+    private static string NormalizeEnvSecret(string value)
+    {
+        var v = (value ?? string.Empty).Trim();
+        if (v.Length >= 2)
+        {
+            var first = v[0];
+            var last = v[^1];
+            if ((first == '"' && last == '"') || (first == '\'' && last == '\''))
+            {
+                v = v.Substring(1, v.Length - 2).Trim();
+            }
+        }
+        return v;
+    }
+
     public static async Task<bool> TryResetAdminAsync(AppDbContext db)
     {
         var resetPasswordRaw = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_PASSWORD");
@@ -14,7 +29,7 @@ public static class DbSeeder
             return false;
         }
 
-        var resetPassword = resetPasswordRaw.Trim();
+        var resetPassword = NormalizeEnvSecret(resetPasswordRaw);
 
         var resetUsername = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_USERNAME");
         if (string.IsNullOrWhiteSpace(resetUsername))

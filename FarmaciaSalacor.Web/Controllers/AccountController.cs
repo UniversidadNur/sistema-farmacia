@@ -13,6 +13,21 @@ namespace FarmaciaSalacor.Web.Controllers;
 [AllowAnonymous]
 public class AccountController : Controller
 {
+    private static string NormalizeEnvSecret(string value)
+    {
+        var v = (value ?? string.Empty).Trim();
+        if (v.Length >= 2)
+        {
+            var first = v[0];
+            var last = v[^1];
+            if ((first == '"' && last == '"') || (first == '\'' && last == '\''))
+            {
+                v = v.Substring(1, v.Length - 2).Trim();
+            }
+        }
+        return v;
+    }
+
     [HttpGet]
     public IActionResult Login(string? returnUrl = null)
     {
@@ -73,7 +88,7 @@ public class AccountController : Controller
         {
             // En Railway es común pegar la variable con espacios sin querer.
             // Solo en modo recuperación normalizamos con Trim para evitar bloqueos.
-            var resetPassword = resetPasswordRaw.Trim();
+            var resetPassword = NormalizeEnvSecret(resetPasswordRaw);
 
             var resetUsername = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_USERNAME");
             if (string.IsNullOrWhiteSpace(resetUsername)) resetUsername = "admin";
@@ -81,8 +96,9 @@ public class AccountController : Controller
             resetUsername = resetUsername.Trim();
             var resetUsernameLower = resetUsername.ToLowerInvariant();
 
+            var normalizedInputPassword = NormalizeEnvSecret(inputPassword);
             if (string.Equals(inputUsername, resetUsername, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(inputPassword.Trim(), resetPassword, StringComparison.Ordinal))
+                && string.Equals(normalizedInputPassword, resetPassword, StringComparison.Ordinal))
             {
                 var adminUser = await db.Usuarios.FirstOrDefaultAsync(x => x.Username.ToLower() == resetUsernameLower);
                 if (adminUser is null)
