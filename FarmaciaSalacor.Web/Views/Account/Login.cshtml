@@ -12,6 +12,14 @@
             </div>
         </div>
         <div class="erp-panel-body">
+            @if ((ViewBag.ResetActive as bool?) == true)
+            {
+                <div class="alert alert-warning py-2 small" role="alert">
+                    <strong>Modo recuperación activo.</strong>
+                    Ingrese con usuario <strong>@(ViewBag.ResetUsername ?? "admin")</strong> y la contraseña definida en <strong>FARMACIA_RESET_ADMIN_PASSWORD</strong>.
+                    Luego elimine esa variable en Railway.
+                </div>
+            }
             <form asp-action="Login" method="post">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="returnUrl" value="@returnUrl" />

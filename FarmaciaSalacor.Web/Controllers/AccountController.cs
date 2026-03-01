@@ -39,6 +39,8 @@ public class AccountController : Controller
         }
 
         ViewData["ReturnUrl"] = returnUrl;
+        ViewBag.ResetActive = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_PASSWORD"));
+        ViewBag.ResetUsername = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_USERNAME") ?? "admin";
         return View(new LoginViewModel());
     }
 
@@ -52,11 +54,16 @@ public class AccountController : Controller
         }
 
         ViewData["ReturnUrl"] = returnUrl;
+        ViewBag.ResetActive = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_PASSWORD"));
+        ViewBag.ResetUsername = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_USERNAME") ?? "admin";
 
         if (!ModelState.IsValid)
         {
             return View(model);
         }
+
+        var inputUsername = (model.Username ?? string.Empty).Trim();
+        var inputPassword = model.Password ?? string.Empty;
 
         // Modo recuperación (producción): si se define FARMACIA_RESET_ADMIN_PASSWORD,
         // permite iniciar sesión con esa clave y asegura que el usuario exista/sea Admin.
@@ -67,10 +74,13 @@ public class AccountController : Controller
             var resetUsername = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_USERNAME");
             if (string.IsNullOrWhiteSpace(resetUsername)) resetUsername = "admin";
 
-            if (string.Equals(model.Username, resetUsername, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(model.Password, resetPassword, StringComparison.Ordinal))
+            resetUsername = resetUsername.Trim();
+            var resetUsernameLower = resetUsername.ToLowerInvariant();
+
+            if (string.Equals(inputUsername, resetUsername, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(inputPassword, resetPassword, StringComparison.Ordinal))
             {
-                var adminUser = await db.Usuarios.FirstOrDefaultAsync(x => x.Username == resetUsername);
+                var adminUser = await db.Usuarios.FirstOrDefaultAsync(x => x.Username.ToLower() == resetUsernameLower);
                 if (adminUser is null)
                 {
                     adminUser = new Usuario
@@ -82,6 +92,9 @@ public class AccountController : Controller
                     };
                     db.Usuarios.Add(adminUser);
                 }
+
+                // Normaliza el username (por si venía con distinta capitalización).
+                adminUser.Username = resetUsername;
 
                 adminUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(resetPassword);
                 adminUser.Rol = Roles.Admin;
@@ -122,9 +135,10 @@ public class AccountController : Controller
             }
         }
 
+        var inputUsernameLower = inputUsername.ToLowerInvariant();
         var user = await db.Usuarios
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Username == model.Username);
+            .FirstOrDefaultAsync(x => x.Username.ToLower() == inputUsernameLower);
 
         if (user is null || !user.Activo)
         {
@@ -132,7 +146,7 @@ public class AccountController : Controller
             return View(model);
         }
 
-        if (!BCrypt.Net.BCrypt.Verify(model.Password, user.PasswordHash))
+        if (!BCrypt.Net.BCrypt.Verify(inputPassword, user.PasswordHash))
         {
             ModelState.AddModelError(string.Empty, "Usuario o contraseña inválidos.");
             return View(model);
