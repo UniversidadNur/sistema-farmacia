@@ -8,17 +8,21 @@ public static class DbSeeder
 {
     public static async Task<bool> TryResetAdminAsync(AppDbContext db)
     {
-        var resetPassword = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_PASSWORD");
-        if (string.IsNullOrWhiteSpace(resetPassword))
+        var resetPasswordRaw = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_PASSWORD");
+        if (string.IsNullOrWhiteSpace(resetPasswordRaw))
         {
             return false;
         }
+
+        var resetPassword = resetPasswordRaw.Trim();
 
         var resetUsername = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_USERNAME");
         if (string.IsNullOrWhiteSpace(resetUsername))
         {
             resetUsername = "admin";
         }
+
+        resetUsername = resetUsername.Trim();
 
         var user = await db.Usuarios.FirstOrDefaultAsync(x => x.Username == resetUsername);
         if (user is null)

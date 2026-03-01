@@ -68,9 +68,13 @@ public class AccountController : Controller
         // Modo recuperación (producción): si se define FARMACIA_RESET_ADMIN_PASSWORD,
         // permite iniciar sesión con esa clave y asegura que el usuario exista/sea Admin.
         // IMPORTANTE: quitar FARMACIA_RESET_ADMIN_PASSWORD después de recuperar acceso.
-        var resetPassword = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_PASSWORD");
-        if (!string.IsNullOrWhiteSpace(resetPassword))
+        var resetPasswordRaw = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_PASSWORD");
+        if (!string.IsNullOrWhiteSpace(resetPasswordRaw))
         {
+            // En Railway es común pegar la variable con espacios sin querer.
+            // Solo en modo recuperación normalizamos con Trim para evitar bloqueos.
+            var resetPassword = resetPasswordRaw.Trim();
+
             var resetUsername = Environment.GetEnvironmentVariable("FARMACIA_RESET_ADMIN_USERNAME");
             if (string.IsNullOrWhiteSpace(resetUsername)) resetUsername = "admin";
 
@@ -78,7 +82,7 @@ public class AccountController : Controller
             var resetUsernameLower = resetUsername.ToLowerInvariant();
 
             if (string.Equals(inputUsername, resetUsername, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(inputPassword, resetPassword, StringComparison.Ordinal))
+                && string.Equals(inputPassword.Trim(), resetPassword, StringComparison.Ordinal))
             {
                 var adminUser = await db.Usuarios.FirstOrDefaultAsync(x => x.Username.ToLower() == resetUsernameLower);
                 if (adminUser is null)
@@ -132,6 +136,12 @@ public class AccountController : Controller
                 }
 
                 return RedirectToAction("Index", "Home");
+            }
+
+            if (string.Equals(inputUsername, resetUsername, StringComparison.OrdinalIgnoreCase))
+            {
+                ModelState.AddModelError(string.Empty, "Modo recuperación activo: la contraseña no coincide con la variable configurada en Railway.");
+                return View(model);
             }
         }
 
