@@ -3,6 +3,7 @@ using FarmaciaSalacor.Web.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 namespace FarmaciaSalacor.Web.Controllers;
 
@@ -33,14 +34,60 @@ public class ReportesController : Controller
         var th = umbral ?? 0m;
         ViewBag.Umbral = th;
 
+        // En SQLite, 'decimal' se guarda como TEXT y puede haber valores con coma decimal ("1,5") u otros
+        // formatos que rompen la materialización a decimal. Usamos SQL seguro con CAST/REPLACE.
+        var provider = _db.Database.ProviderName ?? string.Empty;
+        if (provider.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+        {
+            var list = new List<Producto>();
+
+            await using var conn = _db.Database.GetDbConnection();
+            if (conn.State != ConnectionState.Open)
+            {
+                await conn.OpenAsync();
+            }
+
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+SELECT Id,
+       Codigo,
+       Nombre,
+       CAST(REPLACE(Stock, ',', '.') AS REAL) AS StockNum
+FROM Productos
+WHERE Activo = 1
+  AND CAST(REPLACE(Stock, ',', '.') AS REAL) <= @th
+ORDER BY CAST(REPLACE(Stock, ',', '.') AS REAL), Nombre;";
+
+            var p = cmd.CreateParameter();
+            p.ParameterName = "@th";
+            p.Value = (double)th;
+            cmd.Parameters.Add(p);
+
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                var id = reader.GetInt32(0);
+                var codigo = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+                var nombre = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
+                var stockNum = reader.IsDBNull(3) ? 0d : reader.GetDouble(3);
+
+                list.Add(new Producto
+                {
+                    Id = id,
+                    Codigo = codigo,
+                    Nombre = nombre,
+                    Stock = Convert.ToDecimal(stockNum)
+                });
+            }
+
+            return View(list);
+        }
+
         var items = await _db.Productos
             .AsNoTracking()
             .Where(x => x.Activo && x.Stock <= th)
             .OrderBy(x => x.Stock)
             .ThenBy(x => x.Nombre)
-            // Importante: en SQLite, si la DB quedó en una migración antigua y faltan columnas
-            // nuevas de Producto, materializar la entidad completa puede fallar.
-            // Proyectamos solo lo necesario para este reporte.
             .Select(x => new Producto
             {
                 Id = x.Id,
